@@ -138,7 +138,7 @@ namespace Moonlight.Shared.Internal.Events
         {
             Logger.Debug($"Mounted: {endpoint}");
 
-            Mount(endpoint, @delegate);
+             _subscriptions.Add(new EventSubscription(endpoint, @delegate));
         }
 
         protected abstract Task GetDelayedTask(int milliseconds = 0);
