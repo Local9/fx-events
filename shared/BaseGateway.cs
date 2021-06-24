@@ -70,7 +70,8 @@ namespace Moonlight.Shared.Internal.Events
 
                     using (var token = new CancellationTokenSource())
                     {
-                        var completed = await Task.WhenAny(task, Task.Delay(30000, token.Token));
+                        var delay = Task.Run(async () => { await GetDelayedTask(30000); }, token.Token);
+                        var completed = await Task.WhenAny(task, delay);
 
                         if (completed == task)
                         {
