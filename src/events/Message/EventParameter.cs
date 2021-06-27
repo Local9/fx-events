@@ -1,9 +1,11 @@
 ﻿using JetBrains.Annotations;
+using Moonlight.Events.Attributes;
 
 namespace Moonlight.Events.Message
 {
     [PublicAPI]
-    public class EventParameter
+    [Serialization]
+    public partial class EventParameter
     {
         public byte[] Data { get; set; }
 

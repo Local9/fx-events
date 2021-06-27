@@ -140,8 +140,7 @@ namespace Moonlight.Events
             params object[] args)
         {
             var stopwatch = StopwatchUtil.StartNew();
-            var message = new EventMessage(endpoint, flow,
-                args.Select(self => new EventParameter(Serialization.Serialize(self))));
+            var message = new EventMessage(endpoint, flow, args.Select(self => new EventParameter(Serialization.Serialize(self))));
 
             if (PrepareDelegate != null)
             {

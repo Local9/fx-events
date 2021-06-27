@@ -21,9 +21,10 @@ namespace Moonlight.Generators.Syntax
         public IDisposable BeginScope(string line)
         {
             AppendLine(line);
+            
             return BeginScope();
         }
-
+        
         public IDisposable BeginScope()
         {
             _content.Append(new string('\t', _indentLevel)).AppendLine("{");
