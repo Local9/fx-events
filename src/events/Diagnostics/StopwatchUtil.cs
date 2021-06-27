@@ -1,26 +1,43 @@
 ﻿using System;
 using CitizenFX.Core.Native;
 using JetBrains.Annotations;
+using Moonlight.Events.Diagnostics.Impl;
 
 namespace Moonlight.Events.Diagnostics
 {
     [PublicAPI]
     public abstract class StopwatchUtil
     {
+        private static bool IsServer = API.IsDuplicityVersion();
+        
         public abstract TimeSpan Elapsed { get; }
         public abstract void Stop();
         public abstract void Start();
 
+
+        public static long Timestamp 
+        {
+            get
+            {
+                if (IsServer)
+                {
+                    return ServerStopwatch.GetTimestamp();
+                }
+                else
+                {
+                    return ClientStopwatch.GetTimestamp();
+                }
+            }
+        } 
+        
         public static StopwatchUtil StartNew()
         {
-            var duplicity = API.IsDuplicityVersion();
-
-            if (!duplicity)
+            if (IsServer)
             {
-                return new ClientStopwatch();
+                return new ServerStopwatch();
             }
 
-            return new ServerStopwatch();
+            return new ClientStopwatch();
         }
     }
 }

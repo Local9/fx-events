@@ -48,14 +48,11 @@ namespace Moonlight.Events.Serialization
 
                 activator(writer);
                 
-                Logger.Debug($"Serialized {type.FullName}: {memory.Length} byte(s)");
-
                 return memory.ToArray();
             }
             catch (Exception ex)
             {
-                throw new SerializationException(
-                    $"Failed Serialization of Value Type \"{type.FullName}\" ({PackMethod})", ex);
+                throw new SerializationException($"Failed serialization of type '{type.FullName}'", ex);
             }
         }
 
@@ -90,7 +87,7 @@ namespace Moonlight.Events.Serialization
             }
             catch (Exception ex)
             {
-                throw new SerializationException($"Failed Deserialization of Value Type \"{type.FullName}\"", ex);
+                throw new SerializationException($"Failed deserialization of type '{type.FullName}'", ex);
             }
         }
 

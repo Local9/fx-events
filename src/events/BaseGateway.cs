@@ -78,7 +78,7 @@ namespace Moonlight.Events
             {
                 var stopwatch = StopwatchUtil.StartNew();
                 var subscription = _handlers.SingleOrDefault(self => self.Endpoint == message.Endpoint) ??
-                                   throw new Exception($"No handler for endpoint \"{message.Endpoint}\" was found.");
+                                   throw new Exception($"Could not find a handler for endpoint '{message.Endpoint}'");
                 var result = InvokeDelegate(subscription);
 
                 if (result?.GetType().GetGenericTypeDefinition() == typeof(Task<>))
@@ -100,16 +100,16 @@ namespace Moonlight.Events
                     else
                     {
                         throw new TimeoutException(
-                            $"({message.Endpoint} - {subscription.Delegate.Method.DeclaringType?.Name ?? "null"}/{subscription.Delegate.Method.Name}) The operation was timed out.");
+                            $"({message.Endpoint} - {subscription.Delegate.Method.DeclaringType?.Name ?? "null"}/{subscription.Delegate.Method.Name}) The operation was timed out");
                     }
                 }
-                
+
                 var response = new EventResponseMessage(message.Id, message.Signature, Serialization.Serialize(result));
                 var buffer = Serialization.Serialize(response);
 
                 PushDelegate(EventConstant.OutboundPipeline, source, buffer);
                 Logger.Debug(
-                    $"[{message.Endpoint}] Responded to \"{message.Id}\" with {buffer.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                    $"[{message.Endpoint}] Responded to {source} with {buffer.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
             }
             else
             {
@@ -130,7 +130,7 @@ namespace Moonlight.Events
         public void ProcessOutbound(EventResponseMessage response)
         {
             var waiting = _queue.SingleOrDefault(self => self.Message.Id == response.Id) ??
-                          throw new Exception($"No request matching \"{response.Id}\" was found.");
+                          throw new Exception($"No request matching {response.Id} was found.");
 
             _queue.Remove(waiting);
             waiting.Callback.Invoke(response.Data);
@@ -140,7 +140,8 @@ namespace Moonlight.Events
             params object[] args)
         {
             var stopwatch = StopwatchUtil.StartNew();
-            var message = new EventMessage(endpoint, flow, args.Select(self => new EventParameter(Serialization.Serialize(self))));
+            var message = new EventMessage(endpoint, flow,
+                args.Select(self => new EventParameter(Serialization.Serialize(self))));
 
             if (PrepareDelegate != null)
             {
@@ -155,7 +156,7 @@ namespace Moonlight.Events
 
             PushDelegate(EventConstant.InboundPipeline, source, buffer);
             Logger.Debug(
-                $"[{endpoint}] [{message.Id}] Sent {buffer.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                $"[{endpoint}] Sent {buffer.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
 
             return message;
         }
@@ -169,7 +170,7 @@ namespace Moonlight.Events
 
             _queue.Add(new EventObservable(message, response =>
             {
-                holder.Buffer = response;
+                holder.Data = response;
                 holder.Value = Serialization.Deserialize<T>(response);
 
                 token.Cancel();
@@ -183,7 +184,7 @@ namespace Moonlight.Events
             var elapsed = stopwatch.Elapsed.TotalMilliseconds;
 
             Logger.Debug(
-                $"[{message.Endpoint}] [{message.Id}] [Task<{typeof(T).Name}>] Received response of {holder.Buffer.Length} byte(s) in {elapsed}ms");
+                $"[{message.Endpoint}] Received response from {source} of {holder.Data.Length} byte(s) in {elapsed}ms");
 
             return holder.Value;
         }

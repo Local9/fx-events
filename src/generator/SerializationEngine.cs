@@ -226,284 +226,96 @@ namespace Moonlight.Generators
         }
 
         public void AppendWriteLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
-            Location location)
+            Location location, ScopeTracker scope = null)
         {
-            var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
-
-            if (nullable)
+            using (scope = scope == null ? code.Encapsulate() : scope.Reference())
             {
-                type = ((INamedTypeSymbol) type).TypeArguments.First();
+                var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
 
-                code.AppendLine($"writer.Write({name}.HasValue);");
-                code.AppendLine($"if ({name}.HasValue)");
-            }
-
-            name = nullable ? $"{name}.Value" : name;
-
-            if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
-            {
-                serialization.Serialize(this, property, type, code, name,
-                    GetIdentifierWithArguments((INamedTypeSymbol) type), location);
-
-                return;
-            }
-
-            if (IsPrimitive(type))
-            {
-                code.AppendLine($"writer.Write({name});");
-            }
-            else
-            {
-                switch (type.TypeKind)
+                if (nullable)
                 {
-                    case TypeKind.Enum:
-                        code.AppendLine($"writer.Write((int) {name});");
+                    type = ((INamedTypeSymbol) type).TypeArguments.First();
 
-                        break;
-                    case TypeKind.Interface:
-                    case TypeKind.Struct:
-                    case TypeKind.Class:
-                        var enumerable = GetQualifiedName(type) == EnumerableQualifiedName
-                            ? (INamedTypeSymbol) type
-                            : type.AllInterfaces.FirstOrDefault(self =>
-                                GetQualifiedName(self) == EnumerableQualifiedName);
+                    code.AppendLine($"writer.Write({name}.HasValue);");
+                    code.AppendLine($"if ({name}.HasValue)");
+                    code.Open();
+                }
 
-                        if (type.TypeKind == TypeKind.Class && !nullable)
-                        {
-                            code.AppendLine($"writer.Write({name} != null);");
-                            code.AppendLine($"if ({name} != null)");
-                        }
+                name = nullable ? $"{name}.Value" : name;
 
-                        if (enumerable != null)
-                        {
-                            var elementType = enumerable.TypeArguments.First();
+                if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
+                {
+                    serialization.Serialize(this, property, type, code, name,
+                        GetIdentifierWithArguments((INamedTypeSymbol) type), location);
 
-                            using (code.BeginScope())
+                    return;
+                }
+
+                if (IsPrimitive(type))
+                {
+                    code.AppendLine($"writer.Write({name});");
+                }
+                else
+                {
+                    
+                    if (type.TypeKind != TypeKind.Struct && type.TypeKind != TypeKind.Enum && !nullable)
+                    {
+                        code.AppendLine($"writer.Write({name} != null);");
+                        code.AppendLine($"if ({name} != null)");
+                        code.Open();
+                    }
+                    
+                    switch (type.TypeKind)
+                    {
+                        case TypeKind.Enum:
+                            code.AppendLine($"writer.Write((int) {name});");
+
+                            break;
+                        case TypeKind.Interface:
+                        case TypeKind.Struct:
+                        case TypeKind.Class:
+                            var enumerable = GetQualifiedName(type) == EnumerableQualifiedName
+                                ? (INamedTypeSymbol) type
+                                : type.AllInterfaces.FirstOrDefault(self =>
+                                    GetQualifiedName(self) == EnumerableQualifiedName);
+
+                            if (enumerable != null)
                             {
-                                var countTechnique = GetAllMembers(type)
-                                    .Where(member => member is IPropertySymbol)
-                                    .Aggregate("Count()", (current, symbol) => symbol.Name switch
+                                var elementType = enumerable.TypeArguments.First();
+
+                                using (code.BeginScope())
+                                {
+                                    var countTechnique = GetAllMembers(type)
+                                        .Where(member => member is IPropertySymbol)
+                                        .Aggregate("Count()", (current, symbol) => symbol.Name switch
+                                        {
+                                            "Count" => "Count",
+                                            "Length" => "Length",
+                                            _ => current
+                                        });
+
+                                    code.AppendLine($"var count = {name}.{countTechnique};");
+                                    code.AppendLine("writer.Write(count);");
+
+                                    using (code.BeginScope($"foreach (var entry in {name})"))
                                     {
-                                        "Count" => "Count",
-                                        "Length" => "Length",
-                                        _ => current
-                                    });
-
-                                code.AppendLine($"var count = {name}.{countTechnique};");
-                                code.AppendLine("writer.Write(count);");
-
-                                using (code.BeginScope($"foreach (var entry in {name})"))
-                                {
-                                    AppendWriteLogic(property, elementType, code, "entry", location);
+                                        AppendWriteLogic(property, elementType, code, "entry", location, scope);
+                                    }
                                 }
-                            }
-                        }
-                        else
-                        {
-                            if (type.TypeKind == TypeKind.Interface)
-                            {
-                                var problem = new SerializationProblem
-                                {
-                                    Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
-                                        "Interface Properties",
-                                        "Could not serialize property '{0}' of type {1} because Interface types are not supported",
-                                        "serialization",
-                                        DiagnosticSeverity.Error, true),
-                                    Locations = new[] { property.Locations.FirstOrDefault(), location },
-                                    Format = new object[] { property.Name, type.Name }
-                                };
-
-                                Problems.Add(problem);
-
-                                code.AppendLine(
-                                    $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
-
-                                return;
-                            }
-
-                            if (HasImplementation(type, PackingMethod) || HasMarkedAsSerializable(type))
-                            {
-                                code.AppendLine($"{name}.{PackingMethod}(writer);");
                             }
                             else
                             {
-                                var problem = new SerializationProblem
-                                {
-                                    Descriptor = new DiagnosticDescriptor(ProblemId.MissingPackingMethod,
-                                        "Packing Method",
-                                        "Could not serialize property '{0}' because {1} is missing method {2}",
-                                        "serialization",
-                                        DiagnosticSeverity.Error, true),
-                                    Locations = new[] { property.Locations.FirstOrDefault(), location },
-                                    Format = new object[] { property.Name, type.Name, PackingMethod }
-                                };
-
-                                Problems.Add(problem);
-
-                                code.AppendLine(
-                                    $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
-                            }
-                        }
-
-                        break;
-                    case TypeKind.Array:
-                        var array = (IArrayTypeSymbol) type;
-
-                        code.AppendLine($"writer.Write({name}.Length);");
-
-                        using (code.BeginScope($"for (var idx = 0; idx < {name}.Length; idx++)"))
-                        {
-                            AppendWriteLogic(property, array.ElementType, code, $"{name}[idx]", location);
-                        }
-
-
-                        break;
-                }
-            }
-        }
-
-        public void AppendReadLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
-            Location location)
-        {
-            var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
-
-            if (nullable)
-            {
-                type = ((INamedTypeSymbol) type).TypeArguments.First();
-                code.AppendLine("if (reader.ReadBoolean())");
-            }
-
-            if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
-            {
-                serialization.Deserialize(this, property, type, code, name,
-                    GetIdentifierWithArguments((INamedTypeSymbol) type), location);
-
-                return;
-            }
-
-            if (IsPrimitive(type))
-            {
-                code.AppendLine(
-                    $"{name} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
-            }
-            else
-            {
-                switch (type.TypeKind)
-                {
-                    case TypeKind.Enum:
-                        code.AppendLine($"{name} = ({type.Name}) reader.ReadInt32();");
-
-                        break;
-                    case TypeKind.Interface:
-                    case TypeKind.Struct:
-                    case TypeKind.Class:
-                        var enumerable = GetQualifiedName(type) == EnumerableQualifiedName
-                            ? (INamedTypeSymbol) type
-                            : type.AllInterfaces.FirstOrDefault(self =>
-                                GetQualifiedName(self) == EnumerableQualifiedName);
-
-                        if (type.TypeKind == TypeKind.Class && !nullable)
-                        {
-                            code.AppendLine("if (reader.ReadBoolean())");
-                        }
-
-                        if (enumerable != null)
-                        {
-                            var elementType = (INamedTypeSymbol) enumerable.TypeArguments.First();
-
-                            if (type.TypeKind == TypeKind.Interface &&
-                                GetQualifiedName(type) != EnumerableQualifiedName)
-                            {
-                                var problem = new SerializationProblem
-                                {
-                                    Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
-                                        "Interface Properties",
-                                        "Could not deserialize property '{0}' of type {1} because Interface types are not supported",
-                                        "serialization",
-                                        DiagnosticSeverity.Error, true),
-                                    Locations = new[] { property.Locations.FirstOrDefault(), location },
-                                    Format = new object[] { property.Name, type.Name }
-                                };
-
-                                Problems.Add(problem);
-
-                                code.AppendLine(
-                                    $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
-
-                                return;
-                            }
-
-                            using (code.BeginScope())
-                            {
-                                code.AppendLine("var count = reader.ReadInt32();");
-
-                                var constructor =
-                                    ((INamedTypeSymbol) type).Constructors.FirstOrDefault(
-                                        self => GetQualifiedName(self.Parameters.FirstOrDefault()?.Type) ==
-                                                EnumerableQualifiedName);
-
-                                var method = HasImplementation(type, "Add", GetQualifiedName(elementType));
-                                var deconstructed = false;
-
-                                if (DeconstructionTypes.ContainsKey(GetQualifiedName(elementType)))
-                                {
-                                    deconstructed = HasImplementation(type, "Add",
-                                        elementType.TypeArguments.Cast<INamedTypeSymbol>().Select(GetQualifiedName)
-                                            .ToArray());
-                                }
-
-                                if (method || deconstructed)
-                                {
-                                    code.AppendLine(
-                                        $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}();");
-                                }
-                                else
-                                {
-                                    code.AppendLine(
-                                        $"var temp = new {GetIdentifierWithArguments(elementType)}[count];");
-                                }
-
-                                using (code.BeginScope("for (var idx = 0; idx < count; idx++)"))
-                                {
-                                    AppendReadLogic(property, elementType, code,
-                                        method || deconstructed ? "var transient" : "temp[idx]", location);
-
-                                    if (method)
-                                    {
-                                        code.AppendLine($"{name}.Add(transient);");
-                                    }
-                                    else if (deconstructed)
-                                    {
-                                        var arguments = DeconstructionTypes[GetQualifiedName(elementType)]
-                                            .Select(self => $"transient.{self}");
-
-                                        code.AppendLine($"{name}.Add({string.Join(",", arguments)});");
-                                    }
-                                }
-
-                                if (method || deconstructed)
-                                {
-                                    return;
-                                }
-
-                                if (constructor != null)
-                                {
-                                    code.AppendLine($"{name} = new {GetIdentifierWithArguments(enumerable)}(temp);");
-
-                                    return;
-                                }
-
-                                if (GetQualifiedName(type) != EnumerableQualifiedName)
+                                if (type.TypeKind == TypeKind.Interface)
                                 {
                                     var problem = new SerializationProblem
                                     {
-                                        Descriptor = new DiagnosticDescriptor(ProblemId.EnumerableProperties,
-                                            "Enumerable Properties",
-                                            "Could not deserialize property '{0}' because enumerable type {1} did not contain a suitable way of adding items",
+                                        Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
+                                            "Interface Properties",
+                                            "Could not serialize property '{0}' of type {1} because Interface types are not supported",
                                             "serialization",
                                             DiagnosticSeverity.Error, true),
                                         Locations = new[] { property.Locations.FirstOrDefault(), location },
-                                        Format = new object[] { property.Name, type.Name, elementType.Name }
+                                        Format = new object[] { property.Name, type.Name }
                                     };
 
                                     Problems.Add(problem);
@@ -514,52 +326,251 @@ namespace Moonlight.Generators
                                     return;
                                 }
 
-                                code.AppendLine($"{name} = temp;");
-                            }
-                        }
-                        else
-                        {
-                            if (type.TypeKind == TypeKind.Interface)
-                            {
-                                var problem = new SerializationProblem
+                                if (HasImplementation(type, PackingMethod) || HasMarkedAsSerializable(type))
                                 {
-                                    Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
-                                        "Interface Properties",
-                                        "Could not deserialize property '{0}' of type {1} because Interface types are not supported",
-                                        "serialization",
-                                        DiagnosticSeverity.Error, true),
-                                    Locations = new[] { property.Locations.FirstOrDefault(), location },
-                                    Format = new object[] { property.Name, type.Name }
-                                };
+                                    code.AppendLine($"{name}.{PackingMethod}(writer);");
+                                }
+                                else
+                                {
+                                    var problem = new SerializationProblem
+                                    {
+                                        Descriptor = new DiagnosticDescriptor(ProblemId.MissingPackingMethod,
+                                            "Packing Method",
+                                            "Could not serialize property '{0}' because {1} is missing method {2}",
+                                            "serialization",
+                                            DiagnosticSeverity.Error, true),
+                                        Locations = new[] { property.Locations.FirstOrDefault(), location },
+                                        Format = new object[] { property.Name, type.Name, PackingMethod }
+                                    };
 
-                                Problems.Add(problem);
+                                    Problems.Add(problem);
+
+                                    code.AppendLine(
+                                        $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
+                                }
+                            }
+
+                            break;
+                        case TypeKind.Array:
+                            var array = (IArrayTypeSymbol) type;
+
+                            code.AppendLine($"writer.Write({name}.Length);");
+
+                            using (code.BeginScope($"for (var idx = 0; idx < {name}.Length; idx++)"))
+                            {
+                                AppendWriteLogic(property, array.ElementType, code, $"{name}[idx]", location, scope);
+                            }
+
+                            break;
+                    }
+                }
+            }
+        }
+
+        public void AppendReadLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
+            Location location, ScopeTracker scope = null)
+        {
+            using (scope = scope == null ? code.Encapsulate() : scope.Reference())
+            {
+                var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
+
+                if (nullable)
+                {
+                    type = ((INamedTypeSymbol) type).TypeArguments.First();
+                    code.AppendLine("if (reader.ReadBoolean())");
+                    code.Open();
+                }
+
+                if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
+                {
+                    serialization.Deserialize(this, property, type, code, name,
+                        GetIdentifierWithArguments((INamedTypeSymbol) type), location);
+
+                    return;
+                }
+
+                if (IsPrimitive(type))
+                {
+                    code.AppendLine(
+                        $"{name} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
+                }
+                else
+                {
+                    if (type.TypeKind != TypeKind.Struct && type.TypeKind != TypeKind.Enum && !nullable)
+                    {
+                        code.AppendLine("if (reader.ReadBoolean())");
+                        code.Open();
+                    }
+
+                    switch (type.TypeKind)
+                    {
+                        case TypeKind.Enum:
+                            code.AppendLine($"{name} = ({type.Name}) reader.ReadInt32();");
+
+                            break;
+                        case TypeKind.Interface:
+                        case TypeKind.Struct:
+                        case TypeKind.Class:
+                            var enumerable = GetQualifiedName(type) == EnumerableQualifiedName
+                                ? (INamedTypeSymbol) type
+                                : type.AllInterfaces.FirstOrDefault(self =>
+                                    GetQualifiedName(self) == EnumerableQualifiedName);
+
+                            if (enumerable != null)
+                            {
+                                var elementType = (INamedTypeSymbol) enumerable.TypeArguments.First();
+
+                                if (type.TypeKind == TypeKind.Interface &&
+                                    GetQualifiedName(type) != EnumerableQualifiedName)
+                                {
+                                    var problem = new SerializationProblem
+                                    {
+                                        Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
+                                            "Interface Properties",
+                                            "Could not deserialize property '{0}' of type {1} because Interface types are not supported",
+                                            "serialization",
+                                            DiagnosticSeverity.Error, true),
+                                        Locations = new[] { property.Locations.FirstOrDefault(), location },
+                                        Format = new object[] { property.Name, type.Name }
+                                    };
+
+                                    Problems.Add(problem);
+
+                                    code.AppendLine(
+                                        $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
+
+                                    return;
+                                }
+
+                                using (code.BeginScope())
+                                {
+                                    code.AppendLine("var count = reader.ReadInt32();");
+
+                                    var constructor =
+                                        ((INamedTypeSymbol) type).Constructors.FirstOrDefault(
+                                            self => GetQualifiedName(self.Parameters.FirstOrDefault()?.Type) ==
+                                                    EnumerableQualifiedName);
+
+                                    var method = HasImplementation(type, "Add", GetQualifiedName(elementType));
+                                    var deconstructed = false;
+
+                                    if (DeconstructionTypes.ContainsKey(GetQualifiedName(elementType)))
+                                    {
+                                        deconstructed = HasImplementation(type, "Add",
+                                            elementType.TypeArguments.Cast<INamedTypeSymbol>().Select(GetQualifiedName)
+                                                .ToArray());
+                                    }
+
+                                    if (method || deconstructed)
+                                    {
+                                        code.AppendLine(
+                                            $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}();");
+                                    }
+                                    else
+                                    {
+                                        code.AppendLine(
+                                            $"var temp = new {GetIdentifierWithArguments(elementType)}[count];");
+                                    }
+
+                                    using (code.BeginScope("for (var idx = 0; idx < count; idx++)"))
+                                    {
+                                        AppendReadLogic(property, elementType, code,
+                                            method || deconstructed ? "var transient" : "temp[idx]", location, scope);
+
+                                        if (method)
+                                        {
+                                            code.AppendLine($"{name}.Add(transient);");
+                                        }
+                                        else if (deconstructed)
+                                        {
+                                            var arguments = DeconstructionTypes[GetQualifiedName(elementType)]
+                                                .Select(self => $"transient.{self}");
+
+                                            code.AppendLine($"{name}.Add({string.Join(",", arguments)});");
+                                        }
+                                    }
+
+                                    if (method || deconstructed)
+                                    {
+                                        return;
+                                    }
+
+                                    if (constructor != null)
+                                    {
+                                        code.AppendLine(
+                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}(temp);");
+
+                                        return;
+                                    }
+
+                                    if (GetQualifiedName(type) != EnumerableQualifiedName)
+                                    {
+                                        var problem = new SerializationProblem
+                                        {
+                                            Descriptor = new DiagnosticDescriptor(ProblemId.EnumerableProperties,
+                                                "Enumerable Properties",
+                                                "Could not deserialize property '{0}' because enumerable type {1} did not contain a suitable way of adding items",
+                                                "serialization",
+                                                DiagnosticSeverity.Error, true),
+                                            Locations = new[] { property.Locations.FirstOrDefault(), location },
+                                            Format = new object[] { property.Name, type.Name, elementType.Name }
+                                        };
+
+                                        Problems.Add(problem);
+
+                                        code.AppendLine(
+                                            $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
+
+                                        return;
+                                    }
+
+                                    code.AppendLine($"{name} = temp;");
+                                }
+                            }
+                            else
+                            {
+                                if (type.TypeKind == TypeKind.Interface)
+                                {
+                                    var problem = new SerializationProblem
+                                    {
+                                        Descriptor = new DiagnosticDescriptor(ProblemId.InterfaceProperties,
+                                            "Interface Properties",
+                                            "Could not deserialize property '{0}' of type {1} because Interface types are not supported",
+                                            "serialization",
+                                            DiagnosticSeverity.Error, true),
+                                        Locations = new[] { property.Locations.FirstOrDefault(), location },
+                                        Format = new object[] { property.Name, type.Name }
+                                    };
+
+                                    Problems.Add(problem);
+
+                                    code.AppendLine(
+                                        $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
+
+                                    return;
+                                }
 
                                 code.AppendLine(
-                                    $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
-
-                                return;
+                                    $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}(reader);");
                             }
 
-                            code.AppendLine(
-                                $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}(reader);");
-                        }
+                            break;
+                        case TypeKind.Array:
+                            var array = (IArrayTypeSymbol) type;
 
-                        break;
-                    case TypeKind.Array:
-                        var array = (IArrayTypeSymbol) type;
-
-                        using (code.BeginScope())
-                        {
-                            code.AppendLine("var length = reader.ReadInt32();");
-                            code.AppendLine($"{name} = new {array.ElementType}[length];");
-
-                            using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
+                            using (code.BeginScope())
                             {
-                                AppendReadLogic(property, array.ElementType, code, $"{name}[idx]", location);
-                            }
-                        }
+                                code.AppendLine("var length = reader.ReadInt32();");
+                                code.AppendLine($"{name} = new {array.ElementType}[length];");
 
-                        break;
+                                using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
+                                {
+                                    AppendReadLogic(property, array.ElementType, code, $"{name}[idx]", location, scope);
+                                }
+                            }
+
+                            break;
+                    }
                 }
             }
         }

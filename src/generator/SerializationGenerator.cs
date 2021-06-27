@@ -17,7 +17,7 @@ namespace Moonlight.Generators
             var engine = (SerializationEngine) context.SyntaxContextReceiver;
 
             if (engine == null) return;
-            
+
             foreach (var item in engine.WorkItems)
             {
                 var code = engine.Compile(item);
@@ -35,10 +35,10 @@ namespace Moonlight.Generators
                             break;
                         }
                     }
-                    
+
                     context.ReportDiagnostic(Diagnostic.Create(problem.Descriptor, location, problem.Format));
                 }
-                
+
                 engine.Problems.Clear();
                 context.AddSource($"{item.TypeSymbol.Name}.Serialization.cs",
                     SourceText.From(code.ToString(), Encoding.UTF8));

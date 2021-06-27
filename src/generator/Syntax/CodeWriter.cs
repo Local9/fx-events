@@ -5,59 +5,101 @@ namespace Moonlight.Generators.Syntax
 {
     public class CodeWriter
     {
-        private readonly StringBuilder _content = new();
-        private int _indentLevel;
+        public int Scope;
+
+        private readonly StringBuilder _content;
+        private int _indentation;
         private readonly ScopeTracker _tracker;
 
         public CodeWriter()
         {
-            _tracker = new ScopeTracker(this);
+            _content = new StringBuilder();
+            _tracker = new ScopeTracker(this, null);
+        }
+
+        public ScopeTracker Encapsulate()
+        {
+            return new(this, Scope);
         }
 
         public void Append(string line) => _content.Append(line);
-        public void AppendLine(string line) => _content.Append(new string('\t', _indentLevel)).AppendLine(line);
+
+        public void AppendLine(string line) => _content.Append(new string('\t', _indentation)).AppendLine(line);
         public void AppendLine() => _content.AppendLine();
+
+        public void Open(bool scope = true)
+        {
+            _content.Append(new string('\t', _indentation)).AppendLine("{");
+            _indentation++;
+
+            if (scope)
+            {
+                Scope++;
+            }
+        }
+
+        public void Close()
+        {
+            _indentation--;
+            _content.Append(new string('\t', _indentation)).AppendLine("}");
+        }
 
         public IDisposable BeginScope(string line)
         {
             AppendLine(line);
-            
+
             return BeginScope();
         }
-        
+
         public IDisposable BeginScope()
         {
-            _content.Append(new string('\t', _indentLevel)).AppendLine("{");
-            _indentLevel += 1;
-            
+            Open(false);
+
             return _tracker;
         }
 
-        public void EndLine() => _content.AppendLine();
+        public override string ToString() => _content.ToString();
+    }
 
-        public void EndScope()
+    public class ScopeTracker : IDisposable
+    {
+        private int? Scope { get; }
+        private CodeWriter Parent { get; }
+        private int _references;
+
+        public ScopeTracker(CodeWriter parent, int? scope)
         {
-            _indentLevel -= 1;
-            _content.Append(new string('\t', _indentLevel)).AppendLine("}");
+            Parent = parent;
+            Scope = scope;
         }
 
-        public void StartLine() => _content.Append(new string('\t', _indentLevel));
-        public override string ToString() => _content.ToString();
-
-        private string EscapeString(string text) => text.Replace("\"", "\"\"");
-
-        private class ScopeTracker : IDisposable
+        public ScopeTracker Reference()
         {
-            private CodeWriter Parent { get; }
+            _references++;
 
-            public ScopeTracker(CodeWriter parent)
+            return this;
+        }
+
+        public void Dispose()
+        {
+            if (_references > 0)
             {
-                Parent = parent;
+                _references--;
+
+                return;
             }
-
-            public void Dispose()
+            
+            if (Scope.HasValue)
             {
-                Parent.EndScope();
+                while (Parent.Scope > Scope)
+                {
+                    Parent.Close();
+                    Parent.Scope--;
+                }
+            }
+            else
+            {
+                Parent.Close();
             }
         }
     }

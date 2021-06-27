@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace Moonlight.Events.Diagnostics
+namespace Moonlight.Events.Diagnostics.Impl
 {
     internal class ServerStopwatch : StopwatchUtil
     {
@@ -21,6 +21,11 @@ namespace Moonlight.Events.Diagnostics
         public override void Start()
         {
             _stopwatch.Start();
+        }
+
+        internal static long GetTimestamp()
+        {
+            return Stopwatch.GetTimestamp() / 10000;
         }
     }
 }
