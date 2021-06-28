@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Moonlight.Events.Diagnostics;
+using Moonlight.Events.Exceptions;
 using Moonlight.Events.Message;
 using Moonlight.Events.Models;
 using Moonlight.Events.Serialization;
@@ -86,8 +87,8 @@ namespace Moonlight.Events
                     using var token = new CancellationTokenSource();
 
                     var task = (Task) result;
-                    var delay = Task.Run(async () => await DelayDelegate(30000), token.Token);
-                    var completed = await Task.WhenAny(task, delay);
+                    var timeout = Task.Run(async () => await DelayDelegate(10000), token.Token);
+                    var completed = await Task.WhenAny(task, timeout);
 
                     if (completed == task)
                     {
@@ -99,7 +100,7 @@ namespace Moonlight.Events
                     }
                     else
                     {
-                        throw new TimeoutException(
+                        throw new EventTimeoutException(
                             $"({message.Endpoint} - {subscription.Delegate.Method.DeclaringType?.Name ?? "null"}/{subscription.Delegate.Method.Name}) The operation was timed out");
                     }
                 }
