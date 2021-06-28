@@ -104,7 +104,8 @@ namespace Moonlight.Events
                     }
                 }
 
-                var response = new EventResponseMessage(message.Id, message.Signature, Serialization.Serialize(result));
+                var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature,
+                    Serialization.Serialize(result));
                 var buffer = Serialization.Serialize(response);
 
                 PushDelegate(EventConstant.OutboundPipeline, source, buffer);

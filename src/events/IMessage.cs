@@ -7,6 +7,7 @@ namespace Moonlight.Events
     public interface IMessage
     {
         Snowflake Id { get; set; }
+        string Endpoint { get; set; }
         string Signature { get; set; }
     }
 }
