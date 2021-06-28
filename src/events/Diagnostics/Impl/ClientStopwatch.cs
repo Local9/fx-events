@@ -1,5 +1,4 @@
 ﻿using System;
-using CitizenFX.Core.Native;
 
 namespace Moonlight.Events.Diagnostics.Impl
 {
@@ -15,18 +14,18 @@ namespace Moonlight.Events.Diagnostics.Impl
             {
                 EnsureReduction();
                 
-                return new TimeSpan((Timestamp - _timestamp - _reduction) * 10000);
+                return new TimeSpan((GetTimestamp() - _timestamp - _reduction) * 10000);
             } 
         }
 
         public ClientStopwatch()
         {
-            _timestamp = API.GetGameTimer();
+            _timestamp = GetTimestamp();
         }
 
         public override void Stop()
         {
-            _haltedAt = API.GetGameTimer();
+            _haltedAt = GetTimestamp();
         }
 
         public override void Start()
@@ -40,7 +39,7 @@ namespace Moonlight.Events.Diagnostics.Impl
         {
             if (_haltedAt != 0)
             {
-                _reduction += API.GetGameTimer() - _haltedAt;
+                _reduction += GetTimestamp() - _haltedAt;
             }
         }
 
