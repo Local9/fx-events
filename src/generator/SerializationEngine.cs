@@ -34,6 +34,7 @@ namespace Moonlight.Generators
             ["System.Tuple`5"] = new TupleQuintupleSerialization(),
             ["System.Tuple`6"] = new TupleSextupleSerialization(),
             ["System.Tuple`7"] = new TupleSeptupleSerialization(),
+            ["System.TimeSpan"] = new TimeSpanSerialization()
         };
 
         private static readonly Dictionary<string, string> PredefinedTypes = new()
