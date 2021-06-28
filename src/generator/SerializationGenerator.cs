@@ -27,6 +27,11 @@ namespace Moonlight.Generators
                 var code = engine.Compile(item);
                 var unique = $"{item.TypeSymbol.Name}.Serialization.cs";
 
+                if (item.TypeSymbol.ContainingType != null)
+                {
+                    unique = item.TypeSymbol.ContainingType.Name + "." + unique;
+                }
+
                 if (sources.Contains(unique))
                 {
                     throw new Exception(
