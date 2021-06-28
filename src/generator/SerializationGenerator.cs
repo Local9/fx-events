@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
@@ -18,9 +20,18 @@ namespace Moonlight.Generators
 
             if (engine == null) return;
 
+            var sources = new List<string>();
+
             foreach (var item in engine.WorkItems)
             {
                 var code = engine.Compile(item);
+                var unique = $"{item.TypeSymbol.Name}.Serialization.cs";
+
+                if (sources.Contains(unique))
+                {
+                    throw new Exception(
+                        $"Could not generate methods for type {item.TypeSymbol.ContainingNamespace}.{item.TypeSymbol.MetadataName} due the source-gen having already processed a type with that name.");
+                }
 
                 foreach (var problem in engine.Problems)
                 {
@@ -40,7 +51,9 @@ namespace Moonlight.Generators
                 }
 
                 engine.Problems.Clear();
-                context.AddSource($"{item.TypeSymbol.Name}.Serialization.cs",
+
+                sources.Add(unique);
+                context.AddSource(unique,
                     SourceText.From(code.ToString(), Encoding.UTF8));
             }
 
