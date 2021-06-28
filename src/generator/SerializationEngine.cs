@@ -618,7 +618,14 @@ namespace Moonlight.Generators
 
         public static string GetQualifiedName(ISymbol symbol)
         {
-            return symbol != null ? $"{symbol.ContainingNamespace}.{symbol.MetadataName}" : null;
+            var name = symbol != null ? $"{symbol.ContainingNamespace}.{symbol.Name}" : null;
+
+            if (symbol is not INamedTypeSymbol { TypeArguments: { Length: > 0 } } named) return name;
+            
+            name += "`";
+            name += named.TypeArguments.Length;
+
+            return name;
         }
 
         private static bool HasMarkedAsSerializable(ISymbol symbol)
