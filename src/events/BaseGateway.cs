@@ -22,7 +22,7 @@ namespace Moonlight.Events
     public abstract class BaseGateway
     {
         protected abstract IEventLogger Logger { get; }
-        protected abstract IEventSerialization Serialization { get; }
+        protected abstract ISerialization Serialization { get; }
 
         private List<Tuple<EventMessage, EventHandler>> _processed =
             new List<Tuple<EventMessage, EventHandler>>();
@@ -36,7 +36,8 @@ namespace Moonlight.Events
 
         public async Task ProcessInboundAsync(ISource source, byte[] serialized)
         {
-            var message = Serialization.Deserialize<EventMessage>(serialized);
+            using var context = new SerializationContext(Serialization, serialized);
+            var message = context.Deserialize<EventMessage>();
 
             await ProcessInboundAsync(message, source);
         }
@@ -66,8 +67,10 @@ namespace Moonlight.Events
                 {
                     var parameter = array[index];
                     var type = parameterInfos[startingIndex + index].ParameterType;
+                    
+                    using var context = new SerializationContext(Serialization, parameter.Data);
 
-                    holder.Add(Serialization.Deserialize(type, parameter.Data));
+                    holder.Add(context.Deserialize(type));
                 }
 
                 parameters.AddRange(holder.ToArray());
@@ -105,13 +108,24 @@ namespace Moonlight.Events
                     }
                 }
 
-                var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature,
-                    Serialization.Serialize(result));
-                var buffer = Serialization.Serialize(response);
+                var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature, null);
 
-                PushDelegate(EventConstant.OutboundPipeline, source, buffer);
-                Logger.Debug(
-                    $"[{message.Endpoint}] Responded to {source} with {buffer.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                using (var context = new SerializationContext(Serialization))
+                {
+                    context.Serialize(result);
+                    response.Data = context.GetData();
+                }
+                
+                using (var context = new SerializationContext(Serialization))
+                {
+                    context.Serialize(response);
+
+                    var data = context.GetData();
+                    
+                    PushDelegate(EventConstant.OutboundPipeline, source, data);
+                    Logger.Debug(
+                        $"[{message.Endpoint}] Responded to {source} with {data.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                }
             }
             else
             {
@@ -124,7 +138,8 @@ namespace Moonlight.Events
 
         public void ProcessOutbound(byte[] serialized)
         {
-            var response = Serialization.Deserialize<EventResponseMessage>(serialized);
+            using var context = new SerializationContext(Serialization, serialized);
+            var response = context.Deserialize<EventResponseMessage>();
 
             ProcessOutbound(response);
         }
@@ -143,7 +158,14 @@ namespace Moonlight.Events
         {
             var stopwatch = StopwatchUtil.StartNew();
             var message = new EventMessage(endpoint, flow,
-                args.Select(self => new EventParameter(Serialization.Serialize(self))));
+                args.Select(self =>
+                {
+                    using var context = new SerializationContext(Serialization);
+                    
+                    context.Serialize(self);
+
+                    return new EventParameter(context.GetData());
+                }));
 
             if (PrepareDelegate != null)
             {
@@ -154,13 +176,18 @@ namespace Moonlight.Events
                 stopwatch.Start();
             }
 
-            var buffer = Serialization.Serialize(message);
+            using (var context = new SerializationContext(Serialization))
+            {
+                context.Serialize(message);
 
-            PushDelegate(EventConstant.InboundPipeline, source, buffer);
-            Logger.Debug(
-                $"[{endpoint}] Sent {buffer.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                var data = context.GetData();
 
-            return message;
+                PushDelegate(EventConstant.InboundPipeline, source, data);
+                Logger.Debug(
+                    $"[{endpoint}] Sent {data.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
+
+                return message;
+            }
         }
 
         protected async Task<T> GetInternal<T>(ISource source, string endpoint, params object[] args)
@@ -170,10 +197,12 @@ namespace Moonlight.Events
             var token = new CancellationTokenSource();
             var holder = new EventValueHolder<T>();
 
-            _queue.Add(new EventObservable(message, response =>
+            _queue.Add(new EventObservable(message, data =>
             {
-                holder.Data = response;
-                holder.Value = Serialization.Deserialize<T>(response);
+                using var context = new SerializationContext(Serialization, data);
+                
+                holder.Data = data;
+                holder.Value = context.Deserialize<T>();
 
                 token.Cancel();
             }));

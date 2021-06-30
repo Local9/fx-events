@@ -27,14 +27,14 @@ namespace Moonlight.Generators
         {
             ["System.Collections.Generic.KeyValuePair`2"] = new KeyValuePairSerialization(),
             ["System.DateTime"] = new DateTimeSerialization(),
+            ["System.TimeSpan"] = new TimeSpanSerialization(),
             ["System.Tuple`1"] = new TupleSingleSerialization(),
             ["System.Tuple`2"] = new TupleDoubleSerialization(),
             ["System.Tuple`3"] = new TupleTripleSerialization(),
             ["System.Tuple`4"] = new TupleQuadrupleSerialization(),
             ["System.Tuple`5"] = new TupleQuintupleSerialization(),
             ["System.Tuple`6"] = new TupleSextupleSerialization(),
-            ["System.Tuple`7"] = new TupleSeptupleSerialization(),
-            ["System.TimeSpan"] = new TimeSpanSerialization()
+            ["System.Tuple`7"] = new TupleSeptupleSerialization()
         };
 
         private static readonly Dictionary<string, string> PredefinedTypes = new()
@@ -685,8 +685,8 @@ namespace Moonlight.Generators
             {
                 members.AddRange(type.GetMembers().Where(self => members.All(deep => self.Name != deep.Name)));
             }
-
-            return members;
+            
+            return members.Where(self => !self.IsStatic);
         }
     }
 }
