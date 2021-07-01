@@ -387,7 +387,7 @@ namespace Moonlight.Generators
                     switch (type.TypeKind)
                     {
                         case TypeKind.Enum:
-                            code.AppendLine($"{name} = ({type.Name}) reader.ReadInt32();");
+                            code.AppendLine($"{name} = ({GetIdentifierWithArguments(type, true)}) reader.ReadInt32();");
 
                             break;
                         case TypeKind.Interface:
