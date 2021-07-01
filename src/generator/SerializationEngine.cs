@@ -120,10 +120,21 @@ namespace Moonlight.Generators
         {
             var symbol = item.TypeSymbol;
             var code = new CodeWriter();
+            var imports = new Dictionary<string, bool>
+            {
+                ["System"] = true, ["System.IO"] = true, ["System.Linq"] = true
+            };
 
-            code.AppendLine("using System;");
-            code.AppendLine("using System.IO;");
-            code.AppendLine("using System.Linq;");
+            foreach (var usingDecl in item.Unit.Usings)
+            {
+                imports[usingDecl.Name.ToString()] = true;
+            }
+
+            foreach (var import in imports.Where(import => import.Value))
+            {
+                code.AppendLine($"using {import.Key};");
+            }
+
             code.AppendLine();
 
             var properties = new List<IPropertySymbol>();
@@ -588,8 +599,8 @@ namespace Moonlight.Generators
 
             builder.Append(full ? GetFullName(symbol) : symbol.Name);
 
-            if (symbol is not INamedTypeSymbol named) return builder.ToString();
-            if (named.TypeArguments == null || named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
+            if (symbol is not INamedTypeSymbol named || named.TypeArguments == null ||
+                named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
 
             builder.Append("<");
             builder.Append(string.Join(",",
