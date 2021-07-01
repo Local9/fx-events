@@ -120,28 +120,10 @@ namespace Moonlight.Generators
         {
             var symbol = item.TypeSymbol;
             var code = new CodeWriter();
-            var defaultUsingDeclarations = new Dictionary<string, bool>
-            {
-                ["System"] = false,
-                ["System.IO"] = false,
-                ["System.Linq"] = false
-            };
 
-            foreach (var usingDecl in item.Unit.Usings)
-            {
-                if (defaultUsingDeclarations.ContainsKey(usingDecl.Name.ToString()))
-                {
-                    defaultUsingDeclarations[usingDecl.Name.ToString()] = true;
-                }
-
-                code.AppendLine($"using {usingDecl.Name};");
-            }
-
-            foreach (var defaultUsing in defaultUsingDeclarations.Where(defaultUsing => !defaultUsing.Value))
-            {
-                code.AppendLine($"using {defaultUsing.Key};");
-            }
-
+            code.AppendLine("using System;");
+            code.AppendLine("using System.IO;");
+            code.AppendLine("using System.Linq;");
             code.AppendLine();
 
             var properties = new List<IPropertySymbol>();
@@ -246,8 +228,8 @@ namespace Moonlight.Generators
 
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
-                    serialization.Serialize(this, property, type, code, name,
-                        GetIdentifierWithArguments((INamedTypeSymbol) type), location);
+                    serialization.Serialize(this, property, type, code, name, GetIdentifierWithArguments(type),
+                        location);
 
                     return;
                 }
@@ -258,14 +240,13 @@ namespace Moonlight.Generators
                 }
                 else
                 {
-                    
                     if (type.TypeKind != TypeKind.Struct && type.TypeKind != TypeKind.Enum && !nullable)
                     {
                         code.AppendLine($"writer.Write({name} != null);");
                         code.AppendLine($"if ({name} != null)");
                         code.Open();
                     }
-                    
+
                     switch (type.TypeKind)
                     {
                         case TypeKind.Enum:
@@ -465,7 +446,7 @@ namespace Moonlight.Generators
                                     if (method || deconstructed)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}();");
+                                            $"{name} = new {GetIdentifierWithArguments(type)}();");
                                     }
                                     else
                                     {
@@ -499,7 +480,7 @@ namespace Moonlight.Generators
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}(temp);");
+                                            $"{name} = new {GetIdentifierWithArguments(enumerable, true)}(temp);");
 
                                         return;
                                     }
@@ -552,7 +533,7 @@ namespace Moonlight.Generators
                                 }
 
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments((INamedTypeSymbol) type)}(reader);");
+                                    $"{name} = new {GetIdentifierWithArguments(type, true)}(reader);");
                             }
 
                             break;
@@ -562,7 +543,8 @@ namespace Moonlight.Generators
                             using (code.BeginScope())
                             {
                                 code.AppendLine("var length = reader.ReadInt32();");
-                                code.AppendLine($"{name} = new {array.ElementType}[length];");
+                                code.AppendLine(
+                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[length];");
 
                                 using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
                                 {
@@ -600,17 +582,18 @@ namespace Moonlight.Generators
             }
         }
 
-        private static string GetIdentifierWithArguments(INamedTypeSymbol symbol)
+        private static string GetIdentifierWithArguments(ISymbol symbol, bool full = false)
         {
             var builder = new StringBuilder();
 
-            builder.Append(symbol.Name);
+            builder.Append(full ? GetFullName(symbol) : symbol.Name);
 
-            if (symbol.TypeArguments == null || symbol.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
+            if (symbol is not INamedTypeSymbol named) return builder.ToString();
+            if (named.TypeArguments == null || named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
 
             builder.Append("<");
             builder.Append(string.Join(",",
-                symbol.TypeArguments.Cast<INamedTypeSymbol>().Select(GetIdentifierWithArguments)));
+                named.TypeArguments.Cast<INamedTypeSymbol>().Select(self => GetIdentifierWithArguments(self, full))));
             builder.Append(">");
 
             return builder.ToString();
@@ -618,14 +601,34 @@ namespace Moonlight.Generators
 
         public static string GetQualifiedName(ISymbol symbol)
         {
-            var name = symbol != null ? $"{symbol.ContainingNamespace}.{symbol.Name}" : null;
+            var name = symbol != null ? GetFullName(symbol) : null;
 
             if (symbol is not INamedTypeSymbol { TypeArguments: { Length: > 0 } } named) return name;
-            
+
             name += "`";
             name += named.TypeArguments.Length;
 
             return name;
+        }
+
+        private static string GetFullName(ISymbol symbol)
+        {
+            var builder = new StringBuilder();
+            var containing = symbol;
+
+            builder.Append(symbol.ContainingNamespace);
+            builder.Append(".");
+
+            var idx = builder.Length;
+
+            while ((containing = containing.ContainingType) != null)
+            {
+                builder.Insert(idx, containing.Name + ".");
+            }
+
+            builder.Append(symbol.Name);
+
+            return builder.ToString();
         }
 
         private static bool HasMarkedAsSerializable(ISymbol symbol)
@@ -685,7 +688,7 @@ namespace Moonlight.Generators
             {
                 members.AddRange(type.GetMembers().Where(self => members.All(deep => self.Name != deep.Name)));
             }
-            
+
             return members.Where(self => !self.IsStatic);
         }
     }

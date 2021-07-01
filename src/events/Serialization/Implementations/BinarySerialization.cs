@@ -425,7 +425,6 @@ namespace Moonlight.Events.Serialization.Implementations
                     }
                     else
                     {
-
                         var activator = (DeserializationObjectActivator<T>) Expression
                             .Lambda(typeof(DeserializationObjectActivator<T>), expression, parameter).Compile();
 
