@@ -38,9 +38,9 @@ namespace Moonlight.Events.Serialization.Implementations
             {
                 if (type == typeof(object))
                 {
+                    // throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
                     writer.Write(value != null);
 
-                    // throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
                     return;
                 }
 

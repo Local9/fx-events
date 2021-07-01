@@ -228,7 +228,7 @@ namespace Moonlight.Generators
 
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
-                    serialization.Serialize(this, property, type, code, name, GetIdentifierWithArguments(type),
+                    serialization.Serialize(this, property, type, code, name, GetIdentifierWithArguments(type, true),
                         location);
 
                     return;
@@ -366,7 +366,7 @@ namespace Moonlight.Generators
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
                     serialization.Deserialize(this, property, type, code, name,
-                        GetIdentifierWithArguments((INamedTypeSymbol) type), location);
+                        GetIdentifierWithArguments(type, true), location);
 
                     return;
                 }
@@ -446,12 +446,12 @@ namespace Moonlight.Generators
                                     if (method || deconstructed)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(type)}();");
+                                            $"{name} = new {GetIdentifierWithArguments(type, true)}();");
                                     }
                                     else
                                     {
                                         code.AppendLine(
-                                            $"var temp = new {GetIdentifierWithArguments(elementType)}[count];");
+                                            $"var temp = new {GetIdentifierWithArguments(elementType, true)}[count];");
                                     }
 
                                     using (code.BeginScope("for (var idx = 0; idx < count; idx++)"))
@@ -544,7 +544,7 @@ namespace Moonlight.Generators
                             {
                                 code.AppendLine("var length = reader.ReadInt32();");
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[length];");
+                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType, true)}[length];");
 
                                 using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
                                 {
