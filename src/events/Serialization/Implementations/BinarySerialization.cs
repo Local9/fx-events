@@ -168,14 +168,15 @@ namespace Moonlight.Events.Serialization.Implementations
             {
                 if (type.IsEnum)
                 {
-                    var handle = context.Reader.ReadInt32();
-                    var expression = Expression.Convert(Expression.Constant(handle, typeof(int)), type);
+                    var underlying = type.GetEnumUnderlyingType();
+                    var handle = DeserializePrimitive(underlying, context);
+                    var expression = Expression.Convert(Expression.Constant(handle, underlying), type);
                     var conversion = Expression.Lambda(expression).Compile();
                     var result = conversion.DynamicInvoke();
-                    
+
                     return (T) result;
                 }
-                
+
                 var primitive = DeserializePrimitive(type, context);
 
                 if (primitive != null) return (T) primitive;
@@ -251,7 +252,7 @@ namespace Moonlight.Events.Serialization.Implementations
                                         new[] { generics[0], generics[1] })!,
                                     keyParam,
                                     valueParam);
-                                
+
                                 var block = Expression.Block(new[]
                                     {
                                         keyParam,
@@ -282,7 +283,7 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     return enumerable;
                 }
-                
+
                 var typeIdentifier = GetTypeIdentifier(type);
 
                 if (typeIdentifier == "System.Collections.Generic.KeyValuePair`2")
