@@ -41,6 +41,13 @@ namespace Moonlight.Events.Serialization.Implementations
                     throw new SerializationException("Cannot serialize values of 'System.Object' type");
                 }
 
+                if (type.IsEnum)
+                {
+                    SerializePrimitive(typeof(int), Convert.ChangeType(value, TypeCode.Int32), context);
+                    
+                    return;
+                }
+
                 var primitive = SerializePrimitive(type, value, context);
 
                 if (primitive) return;
@@ -168,9 +175,8 @@ namespace Moonlight.Events.Serialization.Implementations
             {
                 if (type.IsEnum)
                 {
-                    var underlying = type.GetEnumUnderlyingType();
-                    var handle = DeserializePrimitive(underlying, context);
-                    var expression = Expression.Convert(Expression.Constant(handle, underlying), type);
+                    var handle = DeserializePrimitive(typeof(int), context);
+                    var expression = Expression.Convert(Expression.Constant(handle, typeof(int)), type);
                     var conversion = Expression.Lambda(expression).Compile();
                     var result = conversion.DynamicInvoke();
 
