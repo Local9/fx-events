@@ -38,13 +38,13 @@ namespace Moonlight.Events.Serialization.Implementations
             {
                 if (type == typeof(object))
                 {
-                    throw new SerializationException("Cannot serialize values of 'System.Object' type");
+                    throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
                 }
 
                 if (type.IsEnum)
                 {
                     SerializePrimitive(typeof(int), Convert.ChangeType(value, TypeCode.Int32), context);
-                    
+
                     return;
                 }
 
@@ -60,8 +60,7 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     if (generics.Length == 0)
                     {
-                        throw new SerializationException(
-                            $"({type.FullName}) Cannot serialize non-generic IEnumerables.");
+                        throw new SerializationException(context, type, "Cannot serialize non-generic IEnumerables");
                     }
 
                     var generic = value is IDictionary
@@ -75,8 +74,8 @@ namespace Moonlight.Events.Serialization.Implementations
                         IDictionary dictionary => dictionary.Count,
                         IList list => list.Count,
                         ICollection collection => collection.Count,
-                        _ => throw new SerializationException(
-                            $"Enumerable type {type.FullName} is not supported. Try adding [Serialization] and the partial keyword, or manually implement packing/unpacking logic.")
+                        _ => throw new SerializationException(context, type,
+                            $"Enumerable type {type.Name} is not supported. Try adding [Serialization] and the partial keyword, or manually implement packing/unpacking logic.")
                     };
 
                     writer.Write(count);
@@ -99,21 +98,23 @@ namespace Moonlight.Events.Serialization.Implementations
                     for (var idx = 0; idx < generics.Length; idx++)
                     {
                         var generic = generics[idx];
-                        var call = Expression.Call(instanceParam, method!, typeParam, Expression.Convert(Expression.Property(valueParam, $"Item{idx + 1}"), typeof(object)), contextParam);
+                        var call = Expression.Call(instanceParam, method!, typeParam,
+                            Expression.Convert(Expression.Property(valueParam, $"Item{idx + 1}"), typeof(object)),
+                            contextParam);
                         var action = (Action) Expression.Lambda(typeof(Action), Expression.Block(new[]
-                        {
-                            instanceParam,
-                            typeParam,
-                            contextParam,
-                            valueParam
-                        },
+                            {
+                                instanceParam,
+                                typeParam,
+                                contextParam,
+                                valueParam
+                            },
                             Expression.Assign(instanceParam, Expression.Constant(this, typeof(BinarySerialization))),
                             Expression.Assign(contextParam, Expression.Constant(context, typeof(SerializationContext))),
                             Expression.Assign(typeParam, Expression.Constant(generic, typeof(Type))),
                             Expression.Assign(valueParam, Expression.Constant(value, type)),
                             call
                         )).Compile();
-                        
+
                         action.Invoke();
                     }
                 }
@@ -173,8 +174,8 @@ namespace Moonlight.Events.Serialization.Implementations
 
                             if (Equals(method, null))
                             {
-                                throw new SerializationException(
-                                    $"({type.FullName}) Failed to find \"{PackMethod}\" method; are you sure you have annotated the type with [Serialization] and the partial keyword?");
+                                throw new SerializationException(context, type,
+                                    $"Failed to find \"{PackMethod}\" method; are you sure you have annotated the type with [Serialization] and the partial keyword?");
                             }
 
                             var parameter = Expression.Parameter(typeof(BinaryWriter), "writer");
@@ -195,7 +196,7 @@ namespace Moonlight.Events.Serialization.Implementations
             }
             catch (Exception ex)
             {
-                throw new SerializationException($"Failed serialization of type '{type.FullName}'", ex);
+                throw new SerializationException(context, type, $"Failed serialization of type '{type.Name}'", ex);
             }
         }
 
@@ -329,8 +330,8 @@ namespace Moonlight.Events.Serialization.Implementations
                 {
                     var generics = type.GetGenericArguments();
                     var constructor = type.GetConstructor(generics) ??
-                                      throw new SerializationException(
-                                          $"Could not find suitable constructor for type: {type.FullName}");
+                                      throw new SerializationException(context, type,
+                                          $"Could not find suitable constructor for type: {type.Name}");
                     var parameters = new List<Expression>();
 
                     foreach (var generic in generics)
@@ -362,8 +363,8 @@ namespace Moonlight.Events.Serialization.Implementations
                 {
                     var generics = type.GetGenericArguments();
                     var constructor = type.GetConstructor(generics) ??
-                                      throw new SerializationException(
-                                          $"Could not find suitable constructor for type: {type.FullName}");
+                                      throw new SerializationException(context, type,
+                                          $"Could not find suitable constructor for type: {type.Name}");
 
                     var key = DeserializeAnonymously(generics[0], context);
                     var value = DeserializeAnonymously(generics[1], context);
@@ -408,8 +409,8 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     if (constructor == null)
                     {
-                        throw new SerializationException(
-                            $"Failed to find a suitable constructor with BinaryReader parameter in type: {type}");
+                        throw new SerializationException(context, type,
+                            $"Failed to find a suitable constructor with BinaryReader parameter in type: {type.Name}");
                     }
 
                     var parameter = Expression.Parameter(typeof(BinaryReader), "reader");
@@ -427,7 +428,7 @@ namespace Moonlight.Events.Serialization.Implementations
             }
             catch (Exception ex)
             {
-                throw new SerializationException($"Failed deserialization of type '{type.FullName}'", ex);
+                throw new SerializationException(context, type, $"Failed deserialization of type '{type.Name}'", ex);
             }
         }
 
@@ -495,7 +496,7 @@ namespace Moonlight.Events.Serialization.Implementations
             }
             catch (Exception ex)
             {
-                throw new Exception($"Could not serialize primitive: {type}", ex);
+                throw new SerializationException(context, type, $"Could not serialize primitive: {type}", ex);
             }
         }
 
@@ -537,7 +538,7 @@ namespace Moonlight.Events.Serialization.Implementations
             }
             catch (Exception ex)
             {
-                throw new Exception($"Could not deserialize primitive: {type}", ex);
+                throw new SerializationException(context, type, $"Could not deserialize primitive: {type}", ex);
             }
         }
 

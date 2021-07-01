@@ -7,6 +7,8 @@ namespace Moonlight.Events.Serialization
     [PublicAPI]
     public class SerializationContext : IDisposable
     {
+        public string Source { get; set; }
+        public string Details { get; set; }
         public BinaryWriter Writer
         {
             get => _writer;
@@ -38,15 +40,21 @@ namespace Moonlight.Events.Serialization
             return _memory.ToArray();
         }
         
-        public SerializationContext(ISerialization serialization)
+        public SerializationContext(string source, string details, ISerialization serialization)
         {
+            Source = source;
+            Details = details;
+
             _serialization = serialization;
             _memory = new MemoryStream();
             _writer = new BinaryWriter(_memory);
         }
 
-        public SerializationContext(ISerialization serialization, byte[] data)
+        public SerializationContext(string source, string details, ISerialization serialization, byte[] data)
         {
+            Source = source;
+            Details = details;
+            
             _serialization = serialization;
             _memory = new MemoryStream(data);
             _reader = new BinaryReader(_memory);

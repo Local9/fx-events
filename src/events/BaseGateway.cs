@@ -36,7 +36,8 @@ namespace Moonlight.Events
 
         public async Task ProcessInboundAsync(ISource source, byte[] serialized)
         {
-            using var context = new SerializationContext(Serialization, serialized);
+            using var context =
+                new SerializationContext(EventConstant.InboundPipeline, null, Serialization, serialized);
             var message = context.Deserialize<EventMessage>();
 
             await ProcessInboundAsync(message, source);
@@ -63,12 +64,12 @@ namespace Moonlight.Events
                 var holder = new List<object>();
                 var parameterInfos = @delegate.Method.GetParameters();
 
-                for (var index = 0; index < array.Length; index++)
+                for (var idx = 0; idx < array.Length; idx++)
                 {
-                    var parameter = array[index];
-                    var type = parameterInfos[startingIndex + index].ParameterType;
-                    
-                    using var context = new SerializationContext(Serialization, parameter.Data);
+                    var parameter = array[idx];
+                    var type = parameterInfos[startingIndex + idx].ParameterType;
+
+                    using var context = new SerializationContext(message.Endpoint, $"(Out) Parameter '{idx}' of type: '{type.Name}'", Serialization, parameter.Data);
 
                     holder.Add(context.Deserialize(type));
                 }
@@ -108,20 +109,21 @@ namespace Moonlight.Events
                     }
                 }
 
+                var resultType = result?.GetType() ?? typeof(object);
                 var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature, null);
 
-                using (var context = new SerializationContext(Serialization))
+                using (var context = new SerializationContext(message.Endpoint, $"Result of type: '{resultType.Name}'", Serialization))
                 {
-                    context.Serialize(result?.GetType() ?? typeof(object), result);
+                    context.Serialize(resultType, result);
                     response.Data = context.GetData();
                 }
-                
-                using (var context = new SerializationContext(Serialization))
+
+                using (var context = new SerializationContext(message.Endpoint, null, Serialization))
                 {
                     context.Serialize(response);
 
                     var data = context.GetData();
-                    
+
                     PushDelegate(EventConstant.OutboundPipeline, source, data);
                     Logger.Debug(
                         $"[{message.Endpoint}] Responded to {source} with {data.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
@@ -138,7 +140,8 @@ namespace Moonlight.Events
 
         public void ProcessOutbound(byte[] serialized)
         {
-            using var context = new SerializationContext(Serialization, serialized);
+            using var context =
+                new SerializationContext(EventConstant.OutboundPipeline, null, Serialization, serialized);
             var response = context.Deserialize<EventResponseMessage>();
 
             ProcessOutbound(response);
@@ -157,15 +160,21 @@ namespace Moonlight.Events
             params object[] args)
         {
             var stopwatch = StopwatchUtil.StartNew();
-            var message = new EventMessage(endpoint, flow,
-                args.Select(self =>
-                {
-                    using var context = new SerializationContext(Serialization);
-                    
-                    context.Serialize(self.GetType(), self);
+            var parameters = new List<EventParameter>();
 
-                    return new EventParameter(context.GetData());
-                }));
+            for (var idx = 0; idx < args.Length; idx++)
+            {
+                var argument = args[idx];
+                var type = argument?.GetType() ?? typeof(object);
+
+                using var context = new SerializationContext(endpoint, $"(In) Parameter '{idx}' of type '{type.Name}'",
+                    Serialization);
+
+                context.Serialize(type, argument);
+                parameters.Add(new EventParameter(context.GetData()));
+            }
+
+            var message = new EventMessage(endpoint, flow, parameters);
 
             if (PrepareDelegate != null)
             {
@@ -176,7 +185,7 @@ namespace Moonlight.Events
                 stopwatch.Start();
             }
 
-            using (var context = new SerializationContext(Serialization))
+            using (var context = new SerializationContext(endpoint, null, Serialization))
             {
                 context.Serialize(message);
 
@@ -199,8 +208,8 @@ namespace Moonlight.Events
 
             _queue.Add(new EventObservable(message, data =>
             {
-                using var context = new SerializationContext(Serialization, data);
-                
+                using var context = new SerializationContext(endpoint, "Response", Serialization, data);
+
                 holder.Data = data;
                 holder.Value = context.Deserialize<T>();
 
