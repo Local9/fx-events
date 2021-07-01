@@ -112,7 +112,7 @@ namespace Moonlight.Events
 
                 using (var context = new SerializationContext(Serialization))
                 {
-                    context.Serialize(result);
+                    context.Serialize(result?.GetType() ?? typeof(object), result);
                     response.Data = context.GetData();
                 }
                 

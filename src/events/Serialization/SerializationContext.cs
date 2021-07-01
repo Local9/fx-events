@@ -60,6 +60,7 @@ namespace Moonlight.Events.Serialization
             Reader?.Dispose();
         }
 
+        public void Serialize(Type type, object value) => _serialization.Serialize(type, value, this);
         public void Serialize<T>(T value) => _serialization.Serialize(value, this);
         public object Deserialize(Type type) => _serialization.Deserialize(type, this);
         public T Deserialize<T>() => _serialization.Deserialize<T>(this);

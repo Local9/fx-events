@@ -350,7 +350,6 @@ namespace Moonlight.Events.Serialization.Implementations
         {
             try
             {
-                Logger.Info($"Serializing Primitive: {type.Name} (code = {Type.GetTypeCode(type)})");
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:
