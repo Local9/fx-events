@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -122,7 +123,7 @@ namespace Moonlight.Generators
             var code = new CodeWriter();
             var imports = new Dictionary<string, bool>
             {
-                ["System"] = true, ["System.IO"] = true, ["System.Linq"] = true
+                ["System"] = true, ["System.IO"] = true, ["System.Linq"] = true,
             };
 
             foreach (var usingDecl in item.Unit.Usings)
@@ -137,7 +138,7 @@ namespace Moonlight.Generators
 
             code.AppendLine();
 
-            var properties = new List<IPropertySymbol>();
+            var properties = new List<Tuple<IPropertySymbol, bool>>();
             var shouldOverride =
                 symbol.BaseType != null && symbol.BaseType.GetAttributes()
                     .Any(self => self.AttributeClass is { Name: "SerializationAttribute" });
@@ -145,12 +146,19 @@ namespace Moonlight.Generators
             foreach (var member in GetAllMembers(symbol))
             {
                 if (member is not IPropertySymbol propertySymbol) continue;
-                if (propertySymbol.GetAttributes()
-                    .Any(self => self.AttributeClass is { Name: "IgnoreAttribute" })) continue;
-                if (propertySymbol.DeclaredAccessibility != Accessibility.Public || propertySymbol.IsIndexer ||
-                    propertySymbol.IsReadOnly || propertySymbol.IsWriteOnly) continue;
 
-                properties.Add(propertySymbol);
+                var attributes = propertySymbol.GetAttributes();
+
+                if (attributes.Any(self => self.AttributeClass is { Name: "IgnoreAttribute" })) continue;
+                
+                var forced = attributes.Any(self => self.AttributeClass is { Name: "ForceAttribute" });
+                
+                if (!forced &&
+                    (propertySymbol.DeclaredAccessibility != Accessibility.Public ||
+                     propertySymbol.IsIndexer || propertySymbol.IsReadOnly ||
+                     propertySymbol.IsWriteOnly)) continue;
+
+                properties.Add(Tuple.Create(propertySymbol, forced));
             }
 
             using (code.BeginScope($"namespace {item.NamespaceDeclaration.Name}"))
@@ -179,7 +187,7 @@ namespace Moonlight.Generators
                         {
                             code.AppendLine(Notice);
 
-                            foreach (var property in properties)
+                            foreach (var (property, _) in properties)
                             {
                                 code.AppendLine();
                                 code.AppendLine($"// Property: {property.Name} ({property.Type.MetadataName})");
@@ -200,8 +208,10 @@ namespace Moonlight.Generators
                         {
                             code.AppendLine(Notice);
 
-                            foreach (var property in properties)
+                            foreach (var (property, forced) in properties)
                             {
+                                if (forced && property.IsReadOnly) continue;
+                                
                                 code.AppendLine();
                                 code.AppendLine($"// Property: {property.Name} ({property.Type.MetadataName})");
 
@@ -239,7 +249,7 @@ namespace Moonlight.Generators
 
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
-                    serialization.Serialize(this, property, type, code, name, GetIdentifierWithArguments(type, true),
+                    serialization.Serialize(this, property, type, code, name, GetIdentifierWithArguments(type),
                         location);
 
                     return;
@@ -247,6 +257,15 @@ namespace Moonlight.Generators
 
                 if (IsPrimitive(type))
                 {
+                    if (!type.IsValueType)
+                    {
+                        using (code.BeginScope($"if ({name} is default({GetIdentifierWithArguments(type)}))"))
+                        {
+                            code.AppendLine(
+                                $"throw new Exception(\"Member '{name}' is a primitive and has no value (null). If this is not an issue, please declare it as nullable.\");");
+                        }
+                    }
+
                     code.AppendLine($"writer.Write({name});");
                 }
                 else
@@ -349,9 +368,17 @@ namespace Moonlight.Generators
 
                             code.AppendLine($"writer.Write({name}.Length);");
 
-                            using (code.BeginScope($"for (var idx = 0; idx < {name}.Length; idx++)"))
+                            if (GetQualifiedName(array.ElementType) == "System.Byte")
                             {
-                                AppendWriteLogic(property, array.ElementType, code, $"{name}[idx]", location, scope);
+                                code.AppendLine($"writer.Write({name});");
+                            }
+                            else
+                            {
+                                using (code.BeginScope($"for (var idx = 0; idx < {name}.Length; idx++)"))
+                                {
+                                    AppendWriteLogic(property, array.ElementType, code, $"{name}[idx]", location,
+                                        scope);
+                                }
                             }
 
                             break;
@@ -377,7 +404,7 @@ namespace Moonlight.Generators
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
                     serialization.Deserialize(this, property, type, code, name,
-                        GetIdentifierWithArguments(type, true), location);
+                        GetIdentifierWithArguments(type), location);
 
                     return;
                 }
@@ -398,7 +425,7 @@ namespace Moonlight.Generators
                     switch (type.TypeKind)
                     {
                         case TypeKind.Enum:
-                            code.AppendLine($"{name} = ({GetIdentifierWithArguments(type, true)}) reader.ReadInt32();");
+                            code.AppendLine($"{name} = ({GetIdentifierWithArguments(type)}) reader.ReadInt32();");
 
                             break;
                         case TypeKind.Interface:
@@ -457,12 +484,12 @@ namespace Moonlight.Generators
                                     if (method || deconstructed)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(type, true)}();");
+                                            $"{name} = new {GetIdentifierWithArguments(type)}();");
                                     }
                                     else
                                     {
                                         code.AppendLine(
-                                            $"var temp = new {GetIdentifierWithArguments(elementType, true)}[count];");
+                                            $"var temp = new {GetIdentifierWithArguments(elementType)}[count];");
                                     }
 
                                     using (code.BeginScope("for (var idx = 0; idx < count; idx++)"))
@@ -491,7 +518,7 @@ namespace Moonlight.Generators
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(enumerable, true)}(temp);");
+                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}(temp);");
 
                                         return;
                                     }
@@ -544,7 +571,7 @@ namespace Moonlight.Generators
                                 }
 
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(type, true)}(reader);");
+                                    $"{name} = new {GetIdentifierWithArguments(type)}(reader);");
                             }
 
                             break;
@@ -555,7 +582,7 @@ namespace Moonlight.Generators
                             {
                                 code.AppendLine("var length = reader.ReadInt32();");
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType, true)}[length];");
+                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[length];");
 
                                 using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
                                 {
@@ -593,18 +620,18 @@ namespace Moonlight.Generators
             }
         }
 
-        private static string GetIdentifierWithArguments(ISymbol symbol, bool full = false)
+        private static string GetIdentifierWithArguments(ISymbol symbol)
         {
             var builder = new StringBuilder();
 
-            builder.Append(full ? GetFullName(symbol) : symbol.Name);
+            builder.Append(GetFullName(symbol));
 
             if (symbol is not INamedTypeSymbol named || named.TypeArguments == null ||
                 named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
 
             builder.Append("<");
             builder.Append(string.Join(",",
-                named.TypeArguments.Cast<INamedTypeSymbol>().Select(self => GetIdentifierWithArguments(self, full))));
+                named.TypeArguments.Cast<INamedTypeSymbol>().Select(GetIdentifierWithArguments)));
             builder.Append(">");
 
             return builder.ToString();

@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Text;
 using JetBrains.Annotations;
 using Moonlight.Events.Diagnostics;
+using Moonlight.Events.Exceptions;
 
 namespace Moonlight.Events.Serialization.Implementations
 {
@@ -36,12 +37,16 @@ namespace Moonlight.Events.Serialization.Implementations
 
             try
             {
+                writer.Write(value != null);
+
+                if (value == null)
+                {
+                    return;
+                }
+
                 if (type == typeof(object))
                 {
-                    // throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
-                    writer.Write(value != null);
-
-                    return;
+                    throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
                 }
 
                 if (type.IsEnum)
@@ -210,6 +215,13 @@ namespace Moonlight.Events.Serialization.Implementations
         {
             try
             {
+                var exists = context.Reader.ReadBoolean();
+
+                if (!exists)
+                {
+                    return default;
+                }
+                
                 if (type.IsEnum)
                 {
                     var handle = DeserializePrimitive(typeof(int), context);

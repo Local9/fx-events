@@ -69,7 +69,7 @@ namespace Moonlight.Events
                     var parameter = array[idx];
                     var type = parameterInfos[startingIndex + idx].ParameterType;
 
-                    using var context = new SerializationContext(message.Endpoint, $"(Out) Parameter '{idx}' of type: '{type.Name}'", Serialization, parameter.Data);
+                    using var context = new SerializationContext(message.Endpoint, $"(Out) Parameter Index {idx}", Serialization, parameter.Data);
 
                     holder.Add(context.Deserialize(type));
                 }
@@ -112,7 +112,7 @@ namespace Moonlight.Events
                 var resultType = result?.GetType() ?? typeof(object);
                 var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature, null);
 
-                using (var context = new SerializationContext(message.Endpoint, $"Result of type: '{resultType.Name}'", Serialization))
+                using (var context = new SerializationContext(message.Endpoint, "Result", Serialization))
                 {
                     context.Serialize(resultType, result);
                     response.Data = context.GetData();
@@ -167,7 +167,7 @@ namespace Moonlight.Events
                 var argument = args[idx];
                 var type = argument?.GetType() ?? typeof(object);
 
-                using var context = new SerializationContext(endpoint, $"(In) Parameter '{idx}' of type '{type.Name}'",
+                using var context = new SerializationContext(endpoint, $"(In) Parameter Index '{idx}'",
                     Serialization);
 
                 context.Serialize(type, argument);
