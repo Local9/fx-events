@@ -47,7 +47,7 @@ namespace Moonlight.Events.Serialization.Implementations
 
                 if (value is IEnumerable enumerable)
                 {
-                    var generics = type.GenericTypeArguments;
+                    var generics = type.GetGenericArguments();
 
                     if (generics.Length == 0)
                     {
@@ -57,8 +57,8 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     var generic = value is IDictionary
                         ? typeof(KeyValuePair<,>)
-                            .MakeGenericType(type.GenericTypeArguments[0], type.GenericTypeArguments[1])
-                        : type.GenericTypeArguments[0];
+                            .MakeGenericType(generics[0], generics[1])
+                        : generics[0];
 
                     var count = value switch
                     {
@@ -79,6 +79,7 @@ namespace Moonlight.Events.Serialization.Implementations
                 }
                 else if (GetTypeIdentifier(type) == "System.Collections.Generic.KeyValuePair`2")
                 {
+                    var generics = type.GetGenericArguments();
                     var method = GetType().GetMethod("Serialize",
                         new[] { typeof(Type), typeof(object), typeof(SerializationContext) });
                     var instanceParam = Expression.Parameter(typeof(BinarySerialization), "instance");
@@ -110,8 +111,8 @@ namespace Moonlight.Events.Serialization.Implementations
                         action.Invoke();
                     }
 
-                    CallSerialization(type.GenericTypeArguments[0], "Key");
-                    CallSerialization(type.GenericTypeArguments[1], "Value");
+                    CallSerialization(generics[0], "Key");
+                    CallSerialization(generics[1], "Value");
                 }
                 else
                     switch (value)
@@ -171,10 +172,11 @@ namespace Moonlight.Events.Serialization.Implementations
 
                 if (typeof(IEnumerable).IsAssignableFrom(type))
                 {
+                    var generics = type.GetGenericArguments();
                     var generic = typeof(IDictionary).IsAssignableFrom(type)
                         ? typeof(KeyValuePair<,>)
-                            .MakeGenericType(type.GenericTypeArguments[0], type.GenericTypeArguments[1])
-                        : type.GenericTypeArguments[0];
+                            .MakeGenericType(generics[0], generics[1])
+                        : generics[0];
 
                     var count = context.Reader.ReadInt32();
                     var countParam = Expression.Parameter(typeof(int), "count");
@@ -233,10 +235,10 @@ namespace Moonlight.Events.Serialization.Implementations
                             {
                                 var instance = Expression.Constant(enumerable, type);
                                 var pairParam = Expression.Constant(pair, generic);
-                                var keyParam = Expression.Parameter(type.GenericTypeArguments[0], "key");
-                                var valueParam = Expression.Parameter(type.GenericTypeArguments[1], "value");
+                                var keyParam = Expression.Parameter(generics[0], "key");
+                                var valueParam = Expression.Parameter(generics[1], "value");
                                 var call = Expression.Call(instance, type.GetMethod("Add",
-                                        new[] { type.GenericTypeArguments[0], type.GenericTypeArguments[1] })!,
+                                        new[] { generics[0], generics[1] })!,
                                     keyParam,
                                     valueParam);
                                 
@@ -273,7 +275,7 @@ namespace Moonlight.Events.Serialization.Implementations
 
                 if (GetTypeIdentifier(type) == "System.Collections.Generic.KeyValuePair`2")
                 {
-                    var generics = type.GenericTypeArguments;
+                    var generics = type.GetGenericArguments();
                     var constructor = type.GetConstructor(generics) ??
                                       throw new SerializationException(
                                           $"Could not find suitable constructor for type: {type.FullName}");
@@ -348,6 +350,7 @@ namespace Moonlight.Events.Serialization.Implementations
         {
             try
             {
+                Logger.Info($"Serializing Primitive: {type.Name} (code = {Type.GetTypeCode(type)})");
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:
@@ -360,10 +363,6 @@ namespace Moonlight.Events.Serialization.Implementations
                         return true;
                     case TypeCode.Char:
                         context.Writer.Write((char) value);
-
-                        return true;
-                    case TypeCode.Decimal:
-                        context.Writer.Write((decimal) value);
 
                         return true;
                     case TypeCode.Double:
@@ -428,8 +427,6 @@ namespace Moonlight.Events.Serialization.Implementations
                         return context.Reader.ReadByte();
                     case TypeCode.Char:
                         return context.Reader.ReadChar();
-                    case TypeCode.Decimal:
-                        return context.Reader.ReadDecimal();
                     case TypeCode.Double:
                         return context.Reader.ReadDouble();
                     case TypeCode.Int16:
