@@ -415,11 +415,22 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     var parameter = Expression.Parameter(typeof(BinaryReader), "reader");
                     var expression = Expression.New(constructor, parameter);
-                    var activator = (DeserializationObjectActivator<T>) Expression
-                        .Lambda(typeof(DeserializationObjectActivator<T>), expression, parameter).Compile();
-                    var instance = activator.Invoke(context.Reader);
 
-                    return instance;
+                    if (typeof(T) == typeof(object))
+                    {
+                        var generic = typeof(DeserializationObjectActivator<>).MakeGenericType(type);
+                        var activator = Expression.Lambda(generic, expression, parameter).Compile();
+           
+                        return (T) activator.DynamicInvoke(context.Reader);
+                    }
+                    else
+                    {
+
+                        var activator = (DeserializationObjectActivator<T>) Expression
+                            .Lambda(typeof(DeserializationObjectActivator<T>), expression, parameter).Compile();
+
+                        return activator.Invoke(context.Reader);
+                    }
                 }
             }
             catch (SerializationException)
