@@ -166,6 +166,16 @@ namespace Moonlight.Events.Serialization.Implementations
         {
             try
             {
+                if (type.IsEnum)
+                {
+                    var handle = context.Reader.ReadInt32();
+                    var expression = Expression.Convert(Expression.Constant(handle, typeof(int)), type);
+                    var conversion = Expression.Lambda(expression).Compile();
+                    var result = conversion.DynamicInvoke();
+                    
+                    return (T) result;
+                }
+                
                 var primitive = DeserializePrimitive(type, context);
 
                 if (primitive != null) return (T) primitive;
@@ -272,16 +282,18 @@ namespace Moonlight.Events.Serialization.Implementations
 
                     return enumerable;
                 }
+                
+                var typeIdentifier = GetTypeIdentifier(type);
 
-                if (GetTypeIdentifier(type) == "System.Collections.Generic.KeyValuePair`2")
+                if (typeIdentifier == "System.Collections.Generic.KeyValuePair`2")
                 {
                     var generics = type.GetGenericArguments();
                     var constructor = type.GetConstructor(generics) ??
                                       throw new SerializationException(
                                           $"Could not find suitable constructor for type: {type.FullName}");
 
-                    var key = Deserialize<dynamic>(generics[0], context);
-                    var value = Deserialize<dynamic>(generics[1], context);
+                    var key = DeserializeAnonymously(generics[0], context);
+                    var value = DeserializeAnonymously(generics[1], context);
                     var keyParam = Expression.Parameter(generics[0], "key");
                     var valueParam = Expression.Parameter(generics[1], "value");
                     var block = Expression.Block(
@@ -296,7 +308,7 @@ namespace Moonlight.Events.Serialization.Implementations
                         var generic = typeof(ObjectActivator<>).MakeGenericType(type);
                         var activator = Expression.Lambda(generic, block).Compile();
 
-                        return activator.Invoke();
+                        return (T) activator.DynamicInvoke();
                     }
                     else
                     {
@@ -414,7 +426,7 @@ namespace Moonlight.Events.Serialization.Implementations
             }
         }
 
-        public dynamic DeserializePrimitive(Type type, SerializationContext context)
+        public object DeserializePrimitive(Type type, SerializationContext context)
         {
             try
             {
