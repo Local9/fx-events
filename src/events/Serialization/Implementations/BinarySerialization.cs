@@ -52,6 +52,8 @@ namespace Moonlight.Events.Serialization.Implementations
 
                 if (primitive) return;
 
+                var typeIdentifier = GetTypeIdentifier(type);
+
                 if (value is IEnumerable enumerable)
                 {
                     var generics = type.GetGenericArguments();
@@ -84,7 +86,38 @@ namespace Moonlight.Events.Serialization.Implementations
                         Serialize(generic, entry, context);
                     }
                 }
-                else if (GetTypeIdentifier(type) == "System.Collections.Generic.KeyValuePair`2")
+                else if (typeIdentifier.StartsWith("System.Tuple`"))
+                {
+                    var generics = type.GetGenericArguments();
+                    var method = GetType().GetMethod("Serialize",
+                        new[] { typeof(Type), typeof(object), typeof(SerializationContext) });
+                    var instanceParam = Expression.Parameter(typeof(BinarySerialization), "instance");
+                    var typeParam = Expression.Parameter(typeof(Type), "type");
+                    var valueParam = Expression.Parameter(type, "value");
+                    var contextParam = Expression.Parameter(typeof(SerializationContext), "context");
+
+                    for (var idx = 0; idx < generics.Length; idx++)
+                    {
+                        var generic = generics[idx];
+                        var call = Expression.Call(instanceParam, method!, typeParam, Expression.Convert(Expression.Property(valueParam, $"Item{idx + 1}"), typeof(object)), contextParam);
+                        var action = (Action) Expression.Lambda(typeof(Action), Expression.Block(new[]
+                        {
+                            instanceParam,
+                            typeParam,
+                            contextParam,
+                            valueParam
+                        },
+                            Expression.Assign(instanceParam, Expression.Constant(this, typeof(BinarySerialization))),
+                            Expression.Assign(contextParam, Expression.Constant(context, typeof(SerializationContext))),
+                            Expression.Assign(typeParam, Expression.Constant(generic, typeof(Type))),
+                            Expression.Assign(valueParam, Expression.Constant(value, type)),
+                            call
+                        )).Compile();
+                        
+                        action.Invoke();
+                    }
+                }
+                else if (typeIdentifier == "System.Collections.Generic.KeyValuePair`2")
                 {
                     var generics = type.GetGenericArguments();
                     var method = GetType().GetMethod("Serialize",
@@ -291,6 +324,39 @@ namespace Moonlight.Events.Serialization.Implementations
                 }
 
                 var typeIdentifier = GetTypeIdentifier(type);
+
+                if (typeIdentifier.StartsWith("System.Tuple`"))
+                {
+                    var generics = type.GetGenericArguments();
+                    var constructor = type.GetConstructor(generics) ??
+                                      throw new SerializationException(
+                                          $"Could not find suitable constructor for type: {type.FullName}");
+                    var parameters = new List<Expression>();
+
+                    foreach (var generic in generics)
+                    {
+                        var entry = Deserialize(generic, context);
+
+                        parameters.Add(Expression.Constant(entry, generic));
+                    }
+
+                    var expression = Expression.New(constructor, parameters);
+
+                    if (typeof(T) == typeof(object))
+                    {
+                        var generic = typeof(ObjectActivator<>).MakeGenericType(type);
+                        var activator = Expression.Lambda(generic, expression).Compile();
+
+                        return (T) activator.DynamicInvoke();
+                    }
+                    else
+                    {
+                        var activator =
+                            (ObjectActivator<T>) Expression.Lambda(typeof(ObjectActivator<T>), expression).Compile();
+
+                        return activator.Invoke();
+                    }
+                }
 
                 if (typeIdentifier == "System.Collections.Generic.KeyValuePair`2")
                 {
