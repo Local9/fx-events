@@ -150,9 +150,9 @@ namespace Moonlight.Generators
                 var attributes = propertySymbol.GetAttributes();
 
                 if (attributes.Any(self => self.AttributeClass is { Name: "IgnoreAttribute" })) continue;
-                
+
                 var forced = attributes.Any(self => self.AttributeClass is { Name: "ForceAttribute" });
-                
+
                 if (!forced &&
                     (propertySymbol.DeclaredAccessibility != Accessibility.Public ||
                      propertySymbol.IsIndexer || propertySymbol.IsReadOnly ||
@@ -211,7 +211,7 @@ namespace Moonlight.Generators
                             foreach (var (property, forced) in properties)
                             {
                                 if (forced && property.IsReadOnly) continue;
-                                
+
                                 code.AppendLine();
                                 code.AppendLine($"// Property: {property.Name} ({property.Type.MetadataName})");
 
@@ -306,14 +306,15 @@ namespace Moonlight.Generators
                                             _ => current
                                         });
 
-                                    var prefix = SerializationEngine.GetVariablePrefix(name);
-                                    
+                                    var prefix = GetVariablePrefix(name);
+
                                     code.AppendLine($"var {prefix}Count = {name}.{countTechnique};");
                                     code.AppendLine($"writer.Write({prefix}Count);");
 
                                     using (code.BeginScope($"foreach (var {prefix}Entry in {name})"))
                                     {
-                                        AppendWriteLogic(property, elementType, code, $"{prefix}Entry", location, scope);
+                                        AppendWriteLogic(property, elementType, code, $"{prefix}Entry", location,
+                                            scope);
                                     }
                                 }
                             }
@@ -376,12 +377,14 @@ namespace Moonlight.Generators
                             }
                             else
                             {
-                                var prefix = SerializationEngine.GetVariablePrefix(name);
+                                var prefix = GetVariablePrefix(name);
                                 var indexName = $"{prefix}Idx";
-                                
-                                using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {name}.Length; {indexName}++)"))
+
+                                using (code.BeginScope(
+                                    $"for (var {indexName} = 0; {indexName} < {name}.Length; {indexName}++)"))
                                 {
-                                    AppendWriteLogic(property, array.ElementType, code, $"{name}[{indexName}]", location,
+                                    AppendWriteLogic(property, array.ElementType, code, $"{name}[{indexName}]",
+                                        location,
                                         scope);
                                 }
                             }
@@ -408,8 +411,8 @@ namespace Moonlight.Generators
 
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
-                    serialization.Deserialize(this, property, type, code, name,
-                        GetIdentifierWithArguments(type), location);
+                    serialization.Deserialize(this, property, type, code, name, GetIdentifierWithArguments(type),
+                        location);
 
                     return;
                 }
@@ -469,8 +472,8 @@ namespace Moonlight.Generators
 
                                 using (code.BeginScope())
                                 {
-                                    var prefix = SerializationEngine.GetVariablePrefix(name);
-                                    
+                                    var prefix = GetVariablePrefix(name);
+
                                     code.AppendLine($"var {prefix}Count = reader.ReadInt32();");
 
                                     var constructor =
@@ -500,11 +503,28 @@ namespace Moonlight.Generators
                                     }
 
                                     var indexName = $"{prefix}Idx";
-                                    
-                                    using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {prefix}Count; {indexName}++)"))
+
+                                    using (code.BeginScope(
+                                        $"for (var {indexName} = 0; {indexName} < {prefix}Count; {indexName}++)"))
                                     {
-                                        AppendReadLogic(property, elementType, code,
-                                            method || deconstructed ? $"var {prefix}Transient" : $"{prefix}Temp[{indexName}", location, scope);
+                                        var index = code.Content.Length;
+                                        var variable = method || deconstructed
+                                            ? $"{prefix}Transient"
+                                            : $"{prefix}Temp[{indexName}]";
+
+                                        AppendReadLogic(property, elementType, code, variable, location, scope);
+
+                                        var length = code.Content.Length - index;
+                                        var dest = new char[length];
+
+                                        code.Content.CopyTo(index, dest, 0, length);
+
+                                        var added = new string(dest);
+
+                                        if (added.StartsWith(variable))
+                                        {
+                                            code.Content.Insert(index, "var ");
+                                        }
 
                                         if (method)
                                         {
@@ -589,17 +609,19 @@ namespace Moonlight.Generators
 
                             using (code.BeginScope())
                             {
-                                var prefix = SerializationEngine.GetVariablePrefix(name);
-                                
+                                var prefix = GetVariablePrefix(name);
+
                                 code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
                                 code.AppendLine(
                                     $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
 
                                 var indexName = $"{prefix}Idx";
-                                
-                                using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {prefix}Length; {indexName}++)"))
+
+                                using (code.BeginScope(
+                                    $"for (var {indexName} = 0; {indexName} < {prefix}Length; {indexName}++)"))
                                 {
-                                    AppendReadLogic(property, array.ElementType, code, $"{name}[{indexName}]", location, scope);
+                                    AppendReadLogic(property, array.ElementType, code, $"{name}[{indexName}]", location,
+                                        scope);
                                 }
                             }
 

@@ -5,15 +5,15 @@ namespace Moonlight.Generators.Syntax
 {
     public class CodeWriter
     {
+        public StringBuilder Content;
         public int Scope;
 
-        private readonly StringBuilder _content;
         private int _indentation;
         private readonly ScopeTracker _tracker;
 
         public CodeWriter()
         {
-            _content = new StringBuilder();
+            Content = new StringBuilder();
             _tracker = new ScopeTracker(this, null);
         }
 
@@ -22,14 +22,14 @@ namespace Moonlight.Generators.Syntax
             return new(this, Scope);
         }
 
-        public void Append(string line) => _content.Append(line);
+        public void Append(string line) => Content.Append(line);
 
-        public void AppendLine(string line) => _content.Append(new string('\t', _indentation)).AppendLine(line);
-        public void AppendLine() => _content.AppendLine();
+        public void AppendLine(string line) => Content.Append(new string('\t', _indentation)).AppendLine(line);
+        public void AppendLine() => Content.AppendLine();
 
         public void Open(bool scope = true)
         {
-            _content.Append(new string('\t', _indentation)).AppendLine("{");
+            Content.Append(new string('\t', _indentation)).AppendLine("{");
             _indentation++;
 
             if (scope)
@@ -41,7 +41,7 @@ namespace Moonlight.Generators.Syntax
         public void Close()
         {
             _indentation--;
-            _content.Append(new string('\t', _indentation)).AppendLine("}");
+            Content.Append(new string('\t', _indentation)).AppendLine("}");
         }
 
         public IDisposable BeginScope(string line)
@@ -58,7 +58,7 @@ namespace Moonlight.Generators.Syntax
             return _tracker;
         }
 
-        public override string ToString() => _content.ToString();
+        public override string ToString() => Content.ToString();
     }
 
     public class ScopeTracker : IDisposable
