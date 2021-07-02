@@ -306,12 +306,14 @@ namespace Moonlight.Generators
                                             _ => current
                                         });
 
-                                    code.AppendLine($"var count = {name}.{countTechnique};");
-                                    code.AppendLine("writer.Write(count);");
+                                    var prefix = SerializationEngine.GetVariablePrefix(name);
+                                    
+                                    code.AppendLine($"var {prefix}Count = {name}.{countTechnique};");
+                                    code.AppendLine($"writer.Write({prefix}Count);");
 
-                                    using (code.BeginScope($"foreach (var entry in {name})"))
+                                    using (code.BeginScope($"foreach (var {prefix}Entry in {name})"))
                                     {
-                                        AppendWriteLogic(property, elementType, code, "entry", location, scope);
+                                        AppendWriteLogic(property, elementType, code, $"{prefix}Entry", location, scope);
                                     }
                                 }
                             }
@@ -374,9 +376,12 @@ namespace Moonlight.Generators
                             }
                             else
                             {
-                                using (code.BeginScope($"for (var idx = 0; idx < {name}.Length; idx++)"))
+                                var prefix = SerializationEngine.GetVariablePrefix(name);
+                                var indexName = $"{prefix}Idx";
+                                
+                                using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {name}.Length; {indexName}++)"))
                                 {
-                                    AppendWriteLogic(property, array.ElementType, code, $"{name}[idx]", location,
+                                    AppendWriteLogic(property, array.ElementType, code, $"{name}[{indexName}]", location,
                                         scope);
                                 }
                             }
@@ -464,7 +469,9 @@ namespace Moonlight.Generators
 
                                 using (code.BeginScope())
                                 {
-                                    code.AppendLine("var count = reader.ReadInt32();");
+                                    var prefix = SerializationEngine.GetVariablePrefix(name);
+                                    
+                                    code.AppendLine($"var {prefix}Count = reader.ReadInt32();");
 
                                     var constructor =
                                         ((INamedTypeSymbol) type).Constructors.FirstOrDefault(
@@ -489,22 +496,24 @@ namespace Moonlight.Generators
                                     else
                                     {
                                         code.AppendLine(
-                                            $"var temp = new {GetIdentifierWithArguments(elementType)}[count];");
+                                            $"var {prefix}Temp = new {GetIdentifierWithArguments(elementType)}[{prefix}Count];");
                                     }
 
-                                    using (code.BeginScope("for (var idx = 0; idx < count; idx++)"))
+                                    var indexName = $"{prefix}Idx";
+                                    
+                                    using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {prefix}Count; {indexName}++)"))
                                     {
                                         AppendReadLogic(property, elementType, code,
-                                            method || deconstructed ? "var transient" : "temp[idx]", location, scope);
+                                            method || deconstructed ? $"var {prefix}Transient" : $"{prefix}Temp[{indexName}", location, scope);
 
                                         if (method)
                                         {
-                                            code.AppendLine($"{name}.Add(transient);");
+                                            code.AppendLine($"{name}.Add({prefix}Transient);");
                                         }
                                         else if (deconstructed)
                                         {
                                             var arguments = DeconstructionTypes[GetQualifiedName(elementType)]
-                                                .Select(self => $"transient.{self}");
+                                                .Select(self => $"{prefix}Transient.{self}");
 
                                             code.AppendLine($"{name}.Add({string.Join(",", arguments)});");
                                         }
@@ -518,7 +527,7 @@ namespace Moonlight.Generators
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}(temp);");
+                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
 
                                         return;
                                     }
@@ -544,7 +553,7 @@ namespace Moonlight.Generators
                                         return;
                                     }
 
-                                    code.AppendLine($"{name} = temp;");
+                                    code.AppendLine($"{name} = {prefix}Temp;");
                                 }
                             }
                             else
@@ -580,13 +589,17 @@ namespace Moonlight.Generators
 
                             using (code.BeginScope())
                             {
-                                code.AppendLine("var length = reader.ReadInt32();");
+                                var prefix = SerializationEngine.GetVariablePrefix(name);
+                                
+                                code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[length];");
+                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
 
-                                using (code.BeginScope("for (var idx = 0; idx < length; idx++)"))
+                                var indexName = $"{prefix}Idx";
+                                
+                                using (code.BeginScope($"for (var {indexName} = 0; {indexName} < {prefix}Length; {indexName}++)"))
                                 {
-                                    AppendReadLogic(property, array.ElementType, code, $"{name}[idx]", location, scope);
+                                    AppendReadLogic(property, array.ElementType, code, $"{name}[{indexName}]", location, scope);
                                 }
                             }
 
@@ -618,6 +631,14 @@ namespace Moonlight.Generators
                 default:
                     return false;
             }
+        }
+
+        public static string GetVariablePrefix(string value)
+        {
+            if (string.IsNullOrEmpty(value) || char.IsLower(value[0]))
+                return value;
+
+            return char.ToLower(value[0]) + value.Substring(1);
         }
 
         private static string GetIdentifierWithArguments(ISymbol symbol)
