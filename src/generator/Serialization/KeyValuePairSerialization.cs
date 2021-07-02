@@ -21,8 +21,8 @@ namespace Moonlight.Generators.Serialization
             var named = (INamedTypeSymbol) type;
             var types = named.TypeArguments;
 
-            code.AppendLine($"{SerializationEngine.GetQualifiedName(types[0])} key;");
-            code.AppendLine($"{SerializationEngine.GetQualifiedName(types[1])} value;");
+            code.AppendLine($"{SerializationEngine.GetQualifiedName(types[0])} key = default;");
+            code.AppendLine($"{SerializationEngine.GetQualifiedName(types[1])} value = default;");
 
             engine.AppendReadLogic(property, types[0], code, "key", location);
             engine.AppendReadLogic(property, types[1], code, "value", location);
