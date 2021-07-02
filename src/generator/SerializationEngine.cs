@@ -233,7 +233,7 @@ namespace Moonlight.Generators
             Location location, ScopeTracker scope = null)
         {
             var disposable = scope = scope == null ? code.Encapsulate() : scope.Reference();
-            
+
             using (disposable)
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
@@ -398,11 +398,10 @@ namespace Moonlight.Generators
         }
 
         public void AppendReadLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
-            Location location, ScopeTracker scope = null, bool definition = false)
+            Location location, ScopeTracker scope = null)
         {
-            var assignment = definition ? $"var {name}" : name;
             var disposable = scope = scope == null ? code.Encapsulate() : scope.Reference();
-            
+
             using (disposable)
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
@@ -425,7 +424,7 @@ namespace Moonlight.Generators
                 if (IsPrimitive(type))
                 {
                     code.AppendLine(
-                        $"{assignment} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
+                        $"{name} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
                 }
                 else
                 {
@@ -438,7 +437,7 @@ namespace Moonlight.Generators
                     switch (type.TypeKind)
                     {
                         case TypeKind.Enum:
-                            code.AppendLine($"{assignment} = ({GetIdentifierWithArguments(type)}) reader.ReadInt32();");
+                            code.AppendLine($"{name} = ({GetIdentifierWithArguments(type)}) reader.ReadInt32();");
 
                             break;
                         case TypeKind.Interface:
@@ -499,7 +498,7 @@ namespace Moonlight.Generators
                                     if (method || deconstructed)
                                     {
                                         code.AppendLine(
-                                            $"{assignment} = new {GetIdentifierWithArguments(type)}();");
+                                            $"{name} = new {GetIdentifierWithArguments(type)}();");
                                     }
                                     else
                                     {
@@ -517,8 +516,10 @@ namespace Moonlight.Generators
                                             ? $"{prefix}Transient"
                                             : $"{prefix}Temp[{indexName}]";
 
-                                        AppendReadLogic(property, elementType, code, variable, location, scope,
-                                            shouldBeTransient);
+                                        if (shouldBeTransient)
+                                            code.AppendLine($"{GetIdentifierWithArguments(elementType)} {variable};");
+                                        
+                                        AppendReadLogic(property, elementType, code, variable, location, scope);
 
                                         if (method)
                                         {
@@ -541,7 +542,7 @@ namespace Moonlight.Generators
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{assignment} = new {GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
+                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
 
                                         return;
                                     }
@@ -567,7 +568,7 @@ namespace Moonlight.Generators
                                         return;
                                     }
 
-                                    code.AppendLine($"{assignment} = {prefix}Temp;");
+                                    code.AppendLine($"{name} = {prefix}Temp;");
                                 }
                             }
                             else
@@ -594,7 +595,7 @@ namespace Moonlight.Generators
                                 }
 
                                 code.AppendLine(
-                                    $"{assignment} = new {GetIdentifierWithArguments(type)}(reader);");
+                                    $"{name} = new {GetIdentifierWithArguments(type)}(reader);");
                             }
 
                             break;
@@ -607,7 +608,7 @@ namespace Moonlight.Generators
 
                                 code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
                                 code.AppendLine(
-                                    $"{assignment} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
+                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
 
                                 var indexName = $"{prefix}Idx";
 
