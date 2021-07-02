@@ -232,7 +232,9 @@ namespace Moonlight.Generators
         public void AppendWriteLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
             Location location, ScopeTracker scope = null)
         {
-            using (scope = scope == null ? code.Encapsulate() : scope.Reference())
+            var disposable = scope = scope == null ? code.Encapsulate() : scope.Reference();
+            
+            using (disposable)
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
 
@@ -396,9 +398,12 @@ namespace Moonlight.Generators
         }
 
         public void AppendReadLogic(IPropertySymbol property, ITypeSymbol type, CodeWriter code, string name,
-            Location location, ScopeTracker scope = null)
+            Location location, ScopeTracker scope = null, bool definition = false)
         {
-            using (scope = scope == null ? code.Encapsulate() : scope.Reference())
+            var assignment = definition ? $"var {name}" : name;
+            var disposable = scope = scope == null ? code.Encapsulate() : scope.Reference();
+            
+            using (disposable)
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
 
@@ -420,7 +425,7 @@ namespace Moonlight.Generators
                 if (IsPrimitive(type))
                 {
                     code.AppendLine(
-                        $"{name} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
+                        $"{assignment} = reader.Read{(PredefinedTypes.TryGetValue(type.Name, out var result) ? result : type.Name)}();");
                 }
                 else
                 {
@@ -433,7 +438,7 @@ namespace Moonlight.Generators
                     switch (type.TypeKind)
                     {
                         case TypeKind.Enum:
-                            code.AppendLine($"{name} = ({GetIdentifierWithArguments(type)}) reader.ReadInt32();");
+                            code.AppendLine($"{assignment} = ({GetIdentifierWithArguments(type)}) reader.ReadInt32();");
 
                             break;
                         case TypeKind.Interface:
@@ -494,7 +499,7 @@ namespace Moonlight.Generators
                                     if (method || deconstructed)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(type)}();");
+                                            $"{assignment} = new {GetIdentifierWithArguments(type)}();");
                                     }
                                     else
                                     {
@@ -507,24 +512,13 @@ namespace Moonlight.Generators
                                     using (code.BeginScope(
                                         $"for (var {indexName} = 0; {indexName} < {prefix}Count; {indexName}++)"))
                                     {
-                                        var index = code.Content.Length;
-                                        var variable = method || deconstructed
+                                        var shouldBeTransient = method || deconstructed;
+                                        var variable = shouldBeTransient
                                             ? $"{prefix}Transient"
                                             : $"{prefix}Temp[{indexName}]";
 
-                                        AppendReadLogic(property, elementType, code, variable, location, scope);
-
-                                        var length = code.Content.Length - index;
-                                        var dest = new char[length];
-
-                                        code.Content.CopyTo(index, dest, 0, length);
-
-                                        var added = new string(dest);
-
-                                        if (added.StartsWith(variable))
-                                        {
-                                            code.Content.Insert(index, "var ");
-                                        }
+                                        AppendReadLogic(property, elementType, code, variable, location, scope,
+                                            shouldBeTransient);
 
                                         if (method)
                                         {
@@ -547,7 +541,7 @@ namespace Moonlight.Generators
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
+                                            $"{assignment} = new {GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
 
                                         return;
                                     }
@@ -573,7 +567,7 @@ namespace Moonlight.Generators
                                         return;
                                     }
 
-                                    code.AppendLine($"{name} = {prefix}Temp;");
+                                    code.AppendLine($"{assignment} = {prefix}Temp;");
                                 }
                             }
                             else
@@ -600,7 +594,7 @@ namespace Moonlight.Generators
                                 }
 
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(type)}(reader);");
+                                    $"{assignment} = new {GetIdentifierWithArguments(type)}(reader);");
                             }
 
                             break;
@@ -613,7 +607,7 @@ namespace Moonlight.Generators
 
                                 code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
                                 code.AppendLine(
-                                    $"{name} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
+                                    $"{assignment} = new {GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
 
                                 var indexName = $"{prefix}Idx";
 

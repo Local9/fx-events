@@ -5,15 +5,15 @@ namespace Moonlight.Generators.Syntax
 {
     public class CodeWriter
     {
-        public StringBuilder Content;
         public int Scope;
 
+        private readonly StringBuilder _content;
         private int _indentation;
         private readonly ScopeTracker _tracker;
 
         public CodeWriter()
         {
-            Content = new StringBuilder();
+            _content = new StringBuilder();
             _tracker = new ScopeTracker(this, null);
         }
 
@@ -22,14 +22,13 @@ namespace Moonlight.Generators.Syntax
             return new(this, Scope);
         }
 
-        public void Append(string line) => Content.Append(line);
-
-        public void AppendLine(string line) => Content.Append(new string('\t', _indentation)).AppendLine(line);
-        public void AppendLine() => Content.AppendLine();
+        public void Append(string line) => _content.Append(line);
+        public void AppendLine(string line) => _content.Append(new string('\t', _indentation)).AppendLine(line);
+        public void AppendLine() => _content.AppendLine();
 
         public void Open(bool scope = true)
         {
-            Content.Append(new string('\t', _indentation)).AppendLine("{");
+            _content.Append(new string('\t', _indentation)).AppendLine("{");
             _indentation++;
 
             if (scope)
@@ -41,7 +40,7 @@ namespace Moonlight.Generators.Syntax
         public void Close()
         {
             _indentation--;
-            Content.Append(new string('\t', _indentation)).AppendLine("}");
+            _content.Append(new string('\t', _indentation)).AppendLine("}");
         }
 
         public IDisposable BeginScope(string line)
@@ -58,7 +57,7 @@ namespace Moonlight.Generators.Syntax
             return _tracker;
         }
 
-        public override string ToString() => Content.ToString();
+        public override string ToString() => _content.ToString();
     }
 
     public class ScopeTracker : IDisposable
@@ -66,6 +65,8 @@ namespace Moonlight.Generators.Syntax
         private int? Scope { get; }
         private CodeWriter Parent { get; }
         private int _references;
+
+        public bool HasReferences => _references > 0;
 
         public ScopeTracker(CodeWriter parent, int? scope)
         {
@@ -75,20 +76,22 @@ namespace Moonlight.Generators.Syntax
 
         public ScopeTracker Reference()
         {
-            _references++;
+            // Is scopeable tracker?
+            if (Scope != null)
+                _references++;
 
             return this;
         }
 
         public void Dispose()
         {
-            if (_references > 0)
+            if (HasReferences)
             {
                 _references--;
 
                 return;
             }
-            
+
             if (Scope.HasValue)
             {
                 while (Parent.Scope > Scope)
