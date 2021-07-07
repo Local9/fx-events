@@ -237,17 +237,23 @@ namespace Moonlight.Generators
             using (disposable)
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
+                var hasUnderlying = false;
 
                 if (nullable)
                 {
-                    type = ((INamedTypeSymbol) type).TypeArguments.First();
+                    var underlying = ((INamedTypeSymbol) type).TypeArguments.FirstOrDefault();
 
-                    code.AppendLine($"writer.Write({name}.HasValue);");
-                    code.AppendLine($"if ({name}.HasValue)");
+                    hasUnderlying = underlying != null;
+                    type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
+
+                    var check = hasUnderlying ? ".HasValue" : " != null";
+
+                    code.AppendLine($"writer.Write({name}{check});");
+                    code.AppendLine($"if ({name}{check})");
                     code.Open();
                 }
 
-                name = nullable ? $"{name}.Value" : name;
+                name = nullable && hasUnderlying ? $"{name}.Value" : name;
 
                 if (DefaultSerialization.TryGetValue(GetQualifiedName(type), out var serialization))
                 {
@@ -408,7 +414,10 @@ namespace Moonlight.Generators
 
                 if (nullable)
                 {
-                    type = ((INamedTypeSymbol) type).TypeArguments.First();
+                    var underlying = ((INamedTypeSymbol) type).TypeArguments.FirstOrDefault();
+
+                    type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
+
                     code.AppendLine("if (reader.ReadBoolean())");
                     code.Open();
                 }
