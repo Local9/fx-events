@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -11,17 +10,15 @@ namespace Moonlight.Generators
     {
         public void Initialize(GeneratorInitializationContext context)
         {
-            context.RegisterForSyntaxNotifications(() => new SerializationEngine());
+            context.RegisterForSyntaxNotifications(() => GenerationEngine.Instance);
         }
 
         public void Execute(GeneratorExecutionContext context)
         {
-            var engine = (SerializationEngine) context.SyntaxContextReceiver;
+            var engine = (GenerationEngine) context.SyntaxContextReceiver;
 
             if (engine == null) return;
-
-            var sources = new List<string>();
-
+            
             foreach (var item in engine.WorkItems)
             {
                 var code = engine.Compile(item);
@@ -30,12 +27,6 @@ namespace Moonlight.Generators
                 if (item.TypeSymbol.ContainingType != null)
                 {
                     unique = item.TypeSymbol.ContainingType.Name + "." + unique;
-                }
-
-                if (sources.Contains(unique))
-                {
-                    throw new Exception(
-                        $"Could not generate methods for type {item.TypeSymbol.ContainingNamespace}.{item.TypeSymbol.MetadataName} due the source-gen having already processed a type with that name.");
                 }
 
                 foreach (var problem in engine.Problems)
@@ -56,12 +47,19 @@ namespace Moonlight.Generators
                 }
 
                 engine.Problems.Clear();
-
-                sources.Add(unique);
-                context.AddSource(unique,
-                    SourceText.From(code.ToString(), Encoding.UTF8));
+                
+                try
+                {
+                    context.AddSource(unique,
+                        SourceText.From(code.ToString(), Encoding.UTF8));
+                }
+                catch (ArgumentException)
+                {
+                        throw new Exception(
+                            $"Duplicate entry: {item.TypeSymbol.ContainingNamespace}.{item.TypeSymbol.MetadataName}");
+                }
             }
-
+            
             // context.AddSource("Logs.cs",
             //     SourceText.From(
             //         $@"/*{Environment.NewLine + string.Join(Environment.NewLine, engine.Logs) + Environment.NewLine}*/",

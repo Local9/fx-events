@@ -9,6 +9,7 @@ namespace Moonlight.Events.Serialization
     {
         public string Source { get; set; }
         public string Details { get; set; }
+
         public BinaryWriter Writer
         {
             get => _writer;
@@ -18,8 +19,9 @@ namespace Moonlight.Events.Serialization
                 _writer = value;
             }
         }
-        
-        public BinaryReader Reader  {
+
+        public BinaryReader Reader
+        {
             get => _reader;
             set
             {
@@ -27,7 +29,7 @@ namespace Moonlight.Events.Serialization
                 _reader = value;
             }
         }
-        
+
         [CanBeNull] public byte[] Original { get; set; }
 
         private ISerialization _serialization;
@@ -39,27 +41,21 @@ namespace Moonlight.Events.Serialization
         {
             return _memory.ToArray();
         }
-        
-        public SerializationContext(string source, string details, ISerialization serialization)
+
+        public SerializationContext(string source, string details, ISerialization serialization, byte[] data = null)
         {
             Source = source;
             Details = details;
 
             _serialization = serialization;
-            _memory = new MemoryStream();
+            _memory = data != null ? new MemoryStream(data) : new MemoryStream();
             _writer = new BinaryWriter(_memory);
-        }
-
-        public SerializationContext(string source, string details, ISerialization serialization, byte[] data)
-        {
-            Source = source;
-            Details = details;
-            
-            _serialization = serialization;
-            _memory = new MemoryStream(data);
             _reader = new BinaryReader(_memory);
 
-            Original = data;
+            if (data != null)
+            {
+                Original = data;
+            }
         }
 
         public void Dispose()

@@ -6,6 +6,6 @@ namespace Moonlight.Events.Message
     public enum EventFlowType
     {
         Straight,
-        Circle
+        Circular
     }
 }
