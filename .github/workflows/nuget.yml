@@ -31,7 +31,8 @@ jobs:
       - name: Extract Version
         run: |
           echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-          echo "Ref: ${{ env.GITHUB_REF }}"
+          echo "Ref: $GITHUB_REF"
+          echo "Env: $GITHUB_ENV"
           echo "Version: ${{ env.VERSION }}"
           
       - name: Pack Events.csproj
