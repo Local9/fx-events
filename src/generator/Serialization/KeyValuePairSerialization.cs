@@ -1,8 +1,8 @@
-﻿using Microsoft.CodeAnalysis;
-using Moonlight.Generators.Generation;
-using Moonlight.Generators.Syntax;
+﻿using Lusive.Events.Generator.Generation;
+using Lusive.Events.Generator.Syntax;
+using Microsoft.CodeAnalysis;
 
-namespace Moonlight.Generators.Serialization
+namespace Lusive.Events.Generator.Serialization
 {
     public class KeyValuePairSerialization : IDefaultSerialization
     {

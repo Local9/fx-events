@@ -1,19 +1,19 @@
 ﻿using JetBrains.Annotations;
-using Moonlight.Events.Attributes;
-using Moonlight.Snowflakes;
+using Lusive.Events.Attributes;
+using Lusive.Snowflakes;
 
-namespace Moonlight.Events.Message
+namespace Lusive.Events.Message
 {
     [PublicAPI]
     [Serialization]
     public partial class EventResponseMessage : IMessage
     {
-        public Snowflake Id { get; set; }
+        public SnowflakeId Id { get; set; }
         public string Endpoint { get; set; }
         public string Signature { get; set; }
         public byte[] Data { get; set; }
 
-        public EventResponseMessage(Snowflake id, string endpoint, string signature, byte[] data)
+        public EventResponseMessage(SnowflakeId id, string endpoint, string signature, byte[] data)
         {
             Id = id;
             Endpoint = endpoint;

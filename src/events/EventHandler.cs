@@ -1,19 +1,19 @@
 ﻿using System;
 using JetBrains.Annotations;
-using Moonlight.Snowflakes;
+using Lusive.Snowflakes;
 
-namespace Moonlight.Events
+namespace Lusive.Events
 {
     [PublicAPI]
     public class EventHandler
     {
-        public Snowflake Id { get; set; }
+        public SnowflakeId Id { get; set; }
         public string Endpoint { get; set; }
         public Delegate Delegate { get; set; }
 
         public EventHandler(string endpoint, Delegate @delegate)
         {
-            Id = Snowflake.Next();
+            Id = SnowflakeId.Next();
             Endpoint = endpoint;
             Delegate = @delegate;
         }

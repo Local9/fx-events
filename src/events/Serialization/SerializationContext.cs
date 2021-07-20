@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using JetBrains.Annotations;
 
-namespace Moonlight.Events.Serialization
+namespace Lusive.Events.Serialization
 {
     [PublicAPI]
     public class SerializationContext : IDisposable

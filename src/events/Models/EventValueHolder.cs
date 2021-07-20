@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Moonlight.Events.Models
+namespace Lusive.Events.Models
 {
     [PublicAPI]
     public class EventValueHolder<T>

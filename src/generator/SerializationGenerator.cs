@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Moonlight.Generators
+namespace Lusive.Events.Generator
 {
     [Generator]
     public class SerializationGenerator : ISourceGenerator

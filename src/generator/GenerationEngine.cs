@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Lusive.Events.Generator.Generation;
+using Lusive.Events.Generator.Models;
+using Lusive.Events.Generator.Problems;
+using Lusive.Events.Generator.Serialization;
+using Lusive.Events.Generator.Syntax;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Moonlight.Generators.Generation;
-using Moonlight.Generators.Models;
-using Moonlight.Generators.Problems;
-using Moonlight.Generators.Serialization;
-using Moonlight.Generators.Syntax;
 
-namespace Moonlight.Generators
+namespace Lusive.Events.Generator
 {
     public class GenerationEngine : ISyntaxContextReceiver
     {

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Text;
 using JetBrains.Annotations;
-using Moonlight.Events.Diagnostics;
+using Lusive.Events.Diagnostics;
 using Newtonsoft.Json;
 
-namespace Moonlight.Events.Serialization.Implementations
+namespace Lusive.Events.Serialization.Implementations
 {
     [PublicAPI]
     public class JsonSerialization : ISerialization

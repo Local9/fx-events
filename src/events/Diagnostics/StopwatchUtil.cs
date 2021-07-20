@@ -1,9 +1,9 @@
 ﻿using System;
 using CitizenFX.Core.Native;
 using JetBrains.Annotations;
-using Moonlight.Events.Diagnostics.Impl;
+using Lusive.Events.Diagnostics.Impl;
 
-namespace Moonlight.Events.Diagnostics
+namespace Lusive.Events.Diagnostics
 {
     [PublicAPI]
     public abstract class StopwatchUtil

@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Moonlight.Events
+namespace Lusive.Events
 {
     [PublicAPI]
     public static class EventConstant

@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using JetBrains.Annotations;
-using Moonlight.Events.Attributes;
-using Moonlight.Snowflakes;
+using Lusive.Events.Attributes;
+using Lusive.Snowflakes;
 
-namespace Moonlight.Events.Message
+namespace Lusive.Events.Message
 {
     [PublicAPI]
     [Serialization]
     public partial class EventMessage : IMessage
     {
-        public Snowflake Id { get; set; }
+        public SnowflakeId Id { get; set; }
         public string Signature { get; set; }
         public string Endpoint { get; set; }
         public EventFlowType Flow { get; set; }
@@ -17,7 +17,7 @@ namespace Moonlight.Events.Message
 
         public EventMessage(string endpoint, EventFlowType flow, IEnumerable<EventParameter> parameters)
         {
-            Id = Snowflake.Next();
+            Id = SnowflakeId.Next();
             Endpoint = endpoint;
             Flow = flow;
             Parameters = parameters;

@@ -1,12 +1,12 @@
 ﻿using JetBrains.Annotations;
-using Moonlight.Snowflakes;
+using Lusive.Snowflakes;
 
-namespace Moonlight.Events
+namespace Lusive.Events
 {
     [PublicAPI]
     public interface IMessage
     {
-        Snowflake Id { get; set; }
+        SnowflakeId Id { get; set; }
         string Endpoint { get; set; }
         string Signature { get; set; }
     }

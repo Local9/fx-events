@@ -1,7 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Moonlight.Generators.Models
+namespace Lusive.Events.Generator.Models
 {
     public struct WorkItem
     {

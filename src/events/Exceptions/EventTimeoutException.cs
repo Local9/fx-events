@@ -1,6 +1,6 @@
 using System;
 
-namespace Moonlight.Events.Exceptions
+namespace Lusive.Events.Exceptions
 {
     public class EventTimeoutException : Exception
     {

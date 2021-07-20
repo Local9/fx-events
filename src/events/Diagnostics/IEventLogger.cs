@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Moonlight.Events.Diagnostics
+namespace Lusive.Events.Diagnostics
 {
     [PublicAPI]
     public interface IEventLogger

@@ -1,7 +1,7 @@
 ﻿using System;
 using JetBrains.Annotations;
 
-namespace Moonlight.Events.Serialization
+namespace Lusive.Events.Serialization
 {
     [PublicAPI]
     public interface ISerialization

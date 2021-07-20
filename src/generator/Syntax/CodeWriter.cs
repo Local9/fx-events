@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace Moonlight.Generators.Syntax
+namespace Lusive.Events.Generator.Syntax
 {
     public class CodeWriter
     {

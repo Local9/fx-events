@@ -1,9 +1,9 @@
 ﻿using System.Linq;
+using Lusive.Events.Generator.Generation;
+using Lusive.Events.Generator.Syntax;
 using Microsoft.CodeAnalysis;
-using Moonlight.Generators.Generation;
-using Moonlight.Generators.Syntax;
 
-namespace Moonlight.Generators.Serialization
+namespace Lusive.Events.Generator.Serialization
 {
     public abstract class BaseTupleSerialization : IDefaultSerialization
     {

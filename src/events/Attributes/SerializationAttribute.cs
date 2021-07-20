@@ -1,7 +1,7 @@
 ﻿using System;
 using JetBrains.Annotations;
 
-namespace Moonlight.Events.Attributes
+namespace Lusive.Events.Attributes
 {
     [PublicAPI]
     public class SerializationAttribute : Attribute

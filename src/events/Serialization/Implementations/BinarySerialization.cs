@@ -7,10 +7,10 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using JetBrains.Annotations;
-using Moonlight.Events.Diagnostics;
-using Moonlight.Events.Exceptions;
+using Lusive.Events.Diagnostics;
+using Lusive.Events.Exceptions;
 
-namespace Moonlight.Events.Serialization.Implementations
+namespace Lusive.Events.Serialization.Implementations
 {
     public delegate void SerializationObjectActivator(BinaryWriter writer);
 

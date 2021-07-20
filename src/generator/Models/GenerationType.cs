@@ -1,4 +1,4 @@
-namespace Moonlight.Generators.Models
+namespace Lusive.Events.Generator.Models
 {
     public enum GenerationType
     {

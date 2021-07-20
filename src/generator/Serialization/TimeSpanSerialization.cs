@@ -1,7 +1,7 @@
+using Lusive.Events.Generator.Syntax;
 using Microsoft.CodeAnalysis;
-using Moonlight.Generators.Syntax;
 
-namespace Moonlight.Generators.Serialization
+namespace Lusive.Events.Generator.Serialization
 {
     public class TimeSpanSerialization : IDefaultSerialization
     {

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <RootNamespace>Moonlight.Events</RootNamespace>
+        <RootNamespace>Lusive.Events</RootNamespace>
         <AssemblyName>Events</AssemblyName>
         <DebugSymbols>true</DebugSymbols>
         <DebugType>portable</DebugType>
@@ -11,22 +11,22 @@
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
         <OutputType>Library</OutputType>
-<!--        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
-<!--        <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>-->
+        <!--        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>-->
+        <!--        <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>-->
     </PropertyGroup>
 
-<!--    <ItemGroup>-->
-<!--        <Compile Remove="$(CompilerGeneratedFilesOutputPath)/*/**/*.cs"/>-->
-<!--    </ItemGroup>-->
+    <!--    <ItemGroup>-->
+    <!--        <Compile Remove="$(CompilerGeneratedFilesOutputPath)/*/**/*.cs"/>-->
+    <!--    </ItemGroup>-->
 
     <ItemGroup>
+        <PackageReference Include="Lusive.Snowflake" Version="1.0.1" ExcludeAssets="runtime" PrivateAssets="All" />
         <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
         <PackageReference Include="JetBrains.Annotations" Version="2020.3.0" />
         <PackageReference Include="Newtonsoft.Json" Version="12.0.3" ExcludeAssets="runtime" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\snowflake\Snowflake.csproj" />
         <ProjectReference Include="..\generator\Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 

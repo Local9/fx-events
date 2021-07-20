@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
-namespace Moonlight.Generators.Problems
+namespace Lusive.Events.Generator.Problems
 {
     public struct SerializationProblem
     {

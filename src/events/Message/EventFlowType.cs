@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 
-namespace Moonlight.Events.Message
+namespace Lusive.Events.Message
 {
     [PublicAPI]
     public enum EventFlowType

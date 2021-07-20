@@ -1,7 +1,7 @@
-﻿using Microsoft.CodeAnalysis;
-using Moonlight.Generators.Syntax;
+﻿using Lusive.Events.Generator.Syntax;
+using Microsoft.CodeAnalysis;
 
-namespace Moonlight.Generators.Serialization
+namespace Lusive.Events.Generator.Serialization
 {
     public interface IDefaultSerialization
     {

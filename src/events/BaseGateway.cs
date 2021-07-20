@@ -4,13 +4,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using Moonlight.Events.Diagnostics;
-using Moonlight.Events.Exceptions;
-using Moonlight.Events.Message;
-using Moonlight.Events.Models;
-using Moonlight.Events.Serialization;
+using Lusive.Events.Diagnostics;
+using Lusive.Events.Exceptions;
+using Lusive.Events.Message;
+using Lusive.Events.Models;
+using Lusive.Events.Serialization;
 
-namespace Moonlight.Events
+namespace Lusive.Events
 {
     public delegate Task EventDelayMethod(int ms = 0);
 

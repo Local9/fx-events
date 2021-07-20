@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+    <metadata>
+        <id>Lusive.Events</id>
+        <version>1.0.0</version>
+        <authors>Lusive</authors>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <license type="expression">MIT</license>
+        <description>A RPC event system made for CitizenFX platforms with built-in binary serialization.</description>
+        <repository type="git" url="https://github.com/frostylucas/fx-events.git" branch="main"/>
+        <copyright>$copyright$</copyright>
+        <tags>citizenfx fivem events fx-events fxevents</tags>
+        <dependencies>
+            <dependency id="Lusive.Snowflake" version="1.0.1"/>
+            <dependency id="Lusive.Events.Generator" version="1.0.0"/>
+        </dependencies>
+    </metadata>
+</package>

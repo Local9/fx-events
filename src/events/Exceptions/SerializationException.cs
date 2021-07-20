@@ -1,8 +1,8 @@
 ﻿using System;
 using JetBrains.Annotations;
-using Moonlight.Events.Serialization;
+using Lusive.Events.Serialization;
 
-namespace Moonlight.Events.Exceptions
+namespace Lusive.Events.Exceptions
 {
     [PublicAPI]
     public class SerializationException : Exception

@@ -1,7 +1,7 @@
 ﻿using JetBrains.Annotations;
-using Moonlight.Events.Attributes;
+using Lusive.Events.Attributes;
 
-namespace Moonlight.Events.Message
+namespace Lusive.Events.Message
 {
     [PublicAPI]
     [Serialization]

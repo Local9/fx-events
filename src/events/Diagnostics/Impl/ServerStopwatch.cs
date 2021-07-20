@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace Moonlight.Events.Diagnostics.Impl
+namespace Lusive.Events.Diagnostics.Impl
 {
     internal class ServerStopwatch : StopwatchUtil
     {

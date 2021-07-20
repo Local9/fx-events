@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Moonlight.Events.Diagnostics.Impl
+namespace Lusive.Events.Diagnostics.Impl
 {
     internal class ClientStopwatch : StopwatchUtil
     {
