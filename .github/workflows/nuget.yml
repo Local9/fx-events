@@ -28,16 +28,16 @@ jobs:
       - name: Extract Tag
         run: |
           echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-          echo Version: $VERSION
+          echo "Version: $VERSION "
           
       - name: Pack Events
-        run: nuget pack src/events/Events.csproj -Version ${VERSION}
+        run: nuget pack src/events/Events.csproj -Version $VERSION
       
       - name: Push Events
         run: nuget push src/events/Lusive.Events.${VERSION}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
         
       - name: Pack Generator
-        run: nuget pack src/generator/Generator.csproj -Version ${VERSION}
+        run: nuget pack src/generator/Generator.csproj -Version $VERSION
       
       - name: Push Generator
         run: nuget push src/generator/Lusive.Events.Generator.${VERSION}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
