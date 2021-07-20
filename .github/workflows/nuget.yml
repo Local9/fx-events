@@ -20,7 +20,7 @@ jobs:
           nuget-version: '5.x'
       
       - name: Install dependencies
-        run: nuget fx-events.sln restore
+        run: nuget restore fx-events.sln
 
       - name: Build
         run: msbuild fx-events.sln -t:build
