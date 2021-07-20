@@ -23,7 +23,7 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-  publish-core:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,25 +32,18 @@ jobs:
         with:
           nuget-api-key: ${{ secrets.NUGET_API_KEY }}
           nuget-version: '5.x'
+        
+      - name: Extract Tag
+        run: echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
           
-      - name: Pack
-        run: nuget pack src/events/Events.csproj
+      - name: Pack Events
+        run: nuget pack src/events/Events.csproj -Version ${VERSION}
       
-      - name: Push
+      - name: Push Events
         run: nuget push src/events/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
-  
-  publish-generator:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: nuget/setup-nuget@v1
-        with:
-          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
-          nuget-version: '5.x'
-          
-      - name: Pack
-        run: nuget pack src/generator/Generator.csproj
+        
+      - name: Pack Generator
+        run: nuget pack src/generator/Generator.csproj -Version ${VERSION}
       
-      - name: Push
+      - name: Push Generator
         run: nuget push src/generator/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
