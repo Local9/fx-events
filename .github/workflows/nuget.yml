@@ -1,0 +1,56 @@
+name: NuGet
+
+on:
+  push:
+    tags:
+    - "v[0-9]+.[0-9]+.[0-9]+"
+    
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.301
+      
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+  publish-core:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: nuget/setup-nuget@v1
+        with:
+          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+          nuget-version: '5.x'
+          
+      - name: Pack
+        run: nuget pack src/events/Events.csproj
+      
+      - name: Push
+        run: nuget push src/events/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+  
+  publish-generator:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: nuget/setup-nuget@v1
+        with:
+          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+          nuget-version: '5.x'
+          
+      - name: Pack
+        run: nuget pack src/generator/Generator.csproj
+      
+      - name: Push
+        run: nuget push src/generator/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
