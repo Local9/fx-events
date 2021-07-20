@@ -1,6 +1,6 @@
 ﻿using System;
 using JetBrains.Annotations;
-using Lusive.Snowflakes;
+using Lusive.Snowflake;
 
 namespace Lusive.Events
 {

@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using JetBrains.Annotations;
 using Lusive.Events.Attributes;
-using Lusive.Snowflakes;
+using Lusive.Snowflake;
 
 namespace Lusive.Events.Message
 {
