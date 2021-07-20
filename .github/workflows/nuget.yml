@@ -28,7 +28,7 @@ jobs:
       - name: Extract Tag
         run: |
           echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-          VERSION
+          echo Version: $VERSION
           
       - name: Pack Events
         run: nuget pack src/events/Events.csproj -Version ${VERSION}
