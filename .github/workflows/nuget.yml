@@ -7,6 +7,9 @@ on:
     
   workflow_dispatch:
 
+env:
+  SOLUTION: fx-events.sln
+
 jobs:
   publish:
     runs-on: windows-latest
@@ -20,24 +23,25 @@ jobs:
           nuget-version: '5.x'
       
       - name: Install dependencies
-        run: nuget restore fx-events.sln
+        run: nuget restore ${{ env.SOLUTION }}
 
       - name: Build
-        run: msbuild fx-events.sln -t:build
+        run: msbuild ${{ env.SOLUTION }} -t:build
         
-      - name: Extract Tag
+      - name: Extract Version
         run: |
           echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-          echo "Version: $VERSION "
+          echo "Ref: ${{ env.GITHUB_REF }}"
+          echo "Version: ${{ env.VERSION }}"
           
-      - name: Pack Events
-        run: nuget pack src/events/Events.csproj -Version $VERSION
+      - name: Pack Events.csproj
+        run: nuget pack src/events/Events.csproj -Version ${{ env.VERSION }}
       
-      - name: Push Events
-        run: nuget push src/events/Lusive.Events.${VERSION}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Push Events.csproj
+        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
         
-      - name: Pack Generator
-        run: nuget pack src/generator/Generator.csproj -Version $VERSION
+      - name: Pack Generator.csproj
+        run: nuget pack src/generator/Generator.csproj -Version ${{ env.VERSION }}
       
-      - name: Push Generator
-        run: nuget push src/generator/Lusive.Events.Generator.${VERSION}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Push Generator.csproj
+        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
