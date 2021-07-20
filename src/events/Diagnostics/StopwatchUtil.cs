@@ -8,28 +8,14 @@ namespace Lusive.Events.Diagnostics
     [PublicAPI]
     public abstract class StopwatchUtil
     {
-        private static bool IsServer = API.IsDuplicityVersion();
+        public static bool IsServer = API.IsDuplicityVersion();
         
         public abstract TimeSpan Elapsed { get; }
         public abstract void Stop();
         public abstract void Start();
 
+        public static long Timestamp => IsServer ? ServerStopwatch.GetTimestamp() : ClientStopwatch.GetTimestamp();
 
-        public static long Timestamp 
-        {
-            get
-            {
-                if (IsServer)
-                {
-                    return ServerStopwatch.GetTimestamp();
-                }
-                else
-                {
-                    return ClientStopwatch.GetTimestamp();
-                }
-            }
-        } 
-        
         public static StopwatchUtil StartNew()
         {
             if (IsServer)
