@@ -1,4 +1,4 @@
-name: NuGet
+name: .NET
 
 on:
   push:
@@ -16,6 +16,13 @@ jobs:
     
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Extract Version
+        run: |
+          echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
+          echo "Ref: ${{ github.ref }}"
+          echo "Version: $VERSION"
+          
       - uses: microsoft/setup-msbuild@v1.0.2
       - uses: nuget/setup-nuget@v1
         with:
@@ -23,26 +30,19 @@ jobs:
           nuget-version: '5.x'
       
       - name: Install dependencies
-        run: nuget restore ${{ env.SOLUTION }}
+        run: nuget restore $SOLUTION
 
       - name: Build
-        run: msbuild ${{ env.SOLUTION }} -t:build
-        
-      - name: Extract Version
-        run: |
-          echo "VERSION=${GITHUB_REF/refs\/tags\/v/}" >> $GITHUB_ENV
-          echo "Ref: $GITHUB_REF"
-          echo "Env: $GITHUB_ENV"
-          echo "Version: ${{ env.VERSION }}"
+        run: msbuild $SOLUTION -t:build
           
       - name: Pack Events.csproj
-        run: nuget pack src/events/Events.csproj -Version ${{ env.VERSION }}
+        run: nuget pack src/events/Events.csproj -Version $VERSION
       
       - name: Push Events.csproj
-        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: nuget push src/events/Lusive.Events.$VERSION.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
         
       - name: Pack Generator.csproj
-        run: nuget pack src/generator/Generator.csproj -Version ${{ env.VERSION }}
+        run: nuget pack src/generator/Generator.csproj -Version $VERSION
       
       - name: Push Generator.csproj
-        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: nuget push src/generator/Lusive.Events.Generator.$VERSION.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
