@@ -38,10 +38,10 @@ jobs:
         run: nuget pack src/events/Events.csproj -Version $env:VERSION
       
       - name: Push Events.csproj
-        run: nuget push src/events/Lusive.Events.$env:VERSION.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg --Source https://api.nuget.org/v3/index.json -SkipDuplicate
         
       - name: Pack Generator.csproj
         run: nuget pack src/generator/Generator.csproj -Version $env:VERSION
       
       - name: Push Generator.csproj
-        run: nuget push src/generator/Lusive.Events.Generator.$env:VERSION.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg --Source https://api.nuget.org/v3/index.json -SkipDuplicate
