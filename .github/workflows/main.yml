@@ -33,14 +33,14 @@ jobs:
       - name: Build
         run: msbuild $SOLUTION -t:build
           
-      - name: Pack Events
-        run: nuget pack src/events/Events.csproj -Version $env:VERSION
-      
-      - name: Push Events
-        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
-        
       - name: Pack Generator
         run: nuget pack src/generator/Generator.csproj -Version $env:VERSION
       
       - name: Push Generator
-        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
+        run: nuget push Lusive.Events.Generator.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
+        
+      - name: Pack Events
+        run: nuget pack src/events/Events.csproj -Version $env:VERSION
+      
+      - name: Push Events
+        run: nuget push Lusive.Events.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
