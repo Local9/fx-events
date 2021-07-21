@@ -19,7 +19,7 @@ jobs:
       
       - name: Extract Version
         run: |
-          echo "VERSION=${{ github.ref/refs\/tags\/v/}}" >> $GITHUB_ENV
+          echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           echo "Ref: ${{ github.ref }}"
           echo "Version: $VERSION"
           
