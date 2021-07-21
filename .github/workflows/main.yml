@@ -19,8 +19,9 @@ jobs:
       
       - name: Extract Version
         run: |
+          echo "GITHUB_REF=${{ github.ref }}"
           echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-          echo "Ref: ${{ github.ref }}"
+          echo "Ref: $GITHUB_REF"
           echo "Version: $VERSION"
           
       - uses: microsoft/setup-msbuild@v1.0.2
