@@ -11,8 +11,11 @@
         <copyright>$copyright$</copyright>
         <tags>citizenfx fivem events fx-events fxevents</tags>
         <dependencies>
-            <dependency id="Lusive.Snowflake" version="1.0.1"/>
-            <dependency id="Lusive.Events.Generator" version="1.0.0"/>
+            <dependency id="Lusive.Snowflake" version="1.1.1"/>
+            <dependency id="Lusive.Events.Generator" version="1.1.0"/>
         </dependencies>
     </metadata>
+    <files>
+        <file src="bin\$configuration$\$id$.pdb" target="lib\net452\" />
+    </files>
 </package>
