@@ -16,32 +16,31 @@ jobs:
     
     steps:
       - uses: actions/checkout@v2
-
-      - name: Extract Version
-        run: |
-          chcp 65001 #set code page to utf-8
-          echo ("VERSION=" + $env:GITHUB_REF.replace('refs/tags/v', '')) >> $env:GITHUB_ENV
-
       - uses: microsoft/setup-msbuild@v1.0.2
       - uses: nuget/setup-nuget@v1
         with:
           nuget-api-key: ${{ secrets.NUGET_API_KEY }}
           nuget-version: '5.x'
       
+      - name: Extract Version
+        run: |
+          chcp 65001 #set code page to utf-8
+          echo ("VERSION=" + $env:GITHUB_REF.replace('refs/tags/v', '')) >> $env:GITHUB_ENV
+
       - name: Install dependencies
         run: nuget restore $SOLUTION
 
       - name: Build
         run: msbuild $SOLUTION -t:build
           
-      - name: Pack Events.csproj
+      - name: Pack Events
         run: nuget pack src/events/Events.csproj -Version $env:VERSION
       
-      - name: Push Events.csproj
-        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg --Source https://api.nuget.org/v3/index.json -SkipDuplicate
+      - name: Push Events
+        run: nuget push src/events/Lusive.Events.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
         
-      - name: Pack Generator.csproj
+      - name: Pack Generator
         run: nuget pack src/generator/Generator.csproj -Version $env:VERSION
       
-      - name: Push Generator.csproj
-        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg --Source https://api.nuget.org/v3/index.json -SkipDuplicate
+      - name: Push Generator
+        run: nuget push src/generator/Lusive.Events.Generator.${{ env.VERSION }}.nupkg -Source https://api.nuget.org/v3/index.json
