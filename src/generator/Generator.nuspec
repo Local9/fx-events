@@ -11,7 +11,4 @@
         <copyright>$copyright$</copyright>
         <tags>citizenfx fivem events fx-events fxevents</tags>
     </metadata>
-    <files>
-        <file src="bin\$configuration$\$id$.pdb" target="lib\net452\"/>
-    </files>
 </package>
