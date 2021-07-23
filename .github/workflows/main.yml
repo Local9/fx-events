@@ -23,9 +23,7 @@ jobs:
           nuget-version: '5.x'
       
       - name: Extract Version
-        run: |
-          chcp 65001 #set code page to utf-8
-          echo ("VERSION=" + $env:GITHUB_REF.replace('refs/tags/v', '')) >> $env:GITHUB_ENV
+        run: echo ("VERSION=" + $env:GITHUB_REF.replace('refs/tags/v', '')) >> $env:GITHUB_ENV
 
       - name: Install dependencies
         run: nuget restore $SOLUTION
