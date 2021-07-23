@@ -149,7 +149,6 @@ namespace Lusive.Events.Generator
                 symbol.BaseType != null && symbol.BaseType.GetAttributes()
                     .Any(self => self.AttributeClass is { Name: "SerializationAttribute" });
 
-
             using (code.BeginScope($"namespace {item.NamespaceDeclaration.Name}"))
             {
                 using (code.BeginScope(
@@ -199,10 +198,17 @@ namespace Lusive.Events.Generator
         public static IEnumerable<Tuple<ISymbol, ITypeSymbol>> GetMembers(ITypeSymbol symbol)
         {
             var members = new List<Tuple<ISymbol, bool>>();
+            var overrides = new List<string>();
 
             foreach (var member in GetAllMembers(symbol))
             {
                 if (member is not IPropertySymbol && member is not IFieldSymbol) continue;
+                if (overrides.Contains(member.Name)) continue;
+                if (member.IsOverride)
+                {
+                    members.RemoveAll(self => self.Item1.Name == member.Name);
+                    overrides.Add(member.Name);
+                }
 
                 var attributes = member.GetAttributes();
 
@@ -211,7 +217,6 @@ namespace Lusive.Events.Generator
                 var forced = attributes.Any(self => self.AttributeClass is { Name: "ForceAttribute" });
 
                 if (!forced && member.DeclaredAccessibility != Accessibility.Public) continue;
-
                 if (member is IPropertySymbol propertySymbol && !forced && (
                     propertySymbol.IsIndexer || propertySymbol.IsReadOnly ||
                     propertySymbol.IsWriteOnly)) continue;
