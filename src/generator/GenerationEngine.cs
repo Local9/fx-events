@@ -309,7 +309,9 @@ namespace Lusive.Events.Generator
 
             builder.Append("<");
             builder.Append(string.Join(",",
-                named.TypeArguments.Cast<INamedTypeSymbol>().Select(GetIdentifierWithArguments)));
+                named.TypeArguments
+                    .Select(GetNamedTypeSymbol)
+                    .Select(GetIdentifierWithArguments)));
             builder.Append(">");
 
             return builder.ToString();

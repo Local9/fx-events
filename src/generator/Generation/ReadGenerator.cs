@@ -116,7 +116,8 @@ namespace Lusive.Events.Generator.Generation
                                         GenerationEngine.GetQualifiedName(elementType)))
                                     {
                                         deconstructed = GenerationEngine.HasImplementation(type, "Add",
-                                            elementType.TypeArguments.Cast<INamedTypeSymbol>()
+                                            elementType.TypeArguments
+                                                .Select(GenerationEngine.GetNamedTypeSymbol)
                                                 .Select(GenerationEngine.GetQualifiedName)
                                                 .ToArray());
                                     }
