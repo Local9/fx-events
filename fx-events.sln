@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Events", "src\events\Events.csproj", "{F8ED5504-7073-40E5-A507-276E180E8E81}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Generator", "src\generator\Generator.csproj", "{2018B2F3-EC51-4EC6-9515-BDC75ABAD484}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F8ED5504-7073-40E5-A507-276E180E8E81}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8ED5504-7073-40E5-A507-276E180E8E81}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8ED5504-7073-40E5-A507-276E180E8E81}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8ED5504-7073-40E5-A507-276E180E8E81}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2018B2F3-EC51-4EC6-9515-BDC75ABAD484}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2018B2F3-EC51-4EC6-9515-BDC75ABAD484}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2018B2F3-EC51-4EC6-9515-BDC75ABAD484}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2018B2F3-EC51-4EC6-9515-BDC75ABAD484}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82382537-FBE7-44CC-AFC8-AF997B2939B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82382537-FBE7-44CC-AFC8-AF997B2939B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82382537-FBE7-44CC-AFC8-AF997B2939B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82382537-FBE7-44CC-AFC8-AF997B2939B9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

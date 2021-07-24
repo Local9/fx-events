@@ -1,0 +1,6 @@
+*.sln.DotSettings.user
+.idea
+src/*/bin
+src/*/obj
+src/*/*.nupkg
+packages
