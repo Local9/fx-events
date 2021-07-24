@@ -72,7 +72,7 @@ namespace Lusive.Events.Generator.Generation
 
                             if (enumerable != null)
                             {
-                                var elementType = GenerationEngine.GetNamedTypeSymbol(enumerable.TypeArguments.First());
+                                var elementType = enumerable.TypeArguments.First();
 
                                 if (type.TypeKind == TypeKind.Interface &&
                                     GenerationEngine.GetQualifiedName(type) != GenerationEngine.EnumerableQualifiedName)
@@ -107,16 +107,15 @@ namespace Lusive.Events.Generator.Generation
                                             self => GenerationEngine.GetQualifiedName(self.Parameters.FirstOrDefault()
                                                         ?.Type) ==
                                                     GenerationEngine.EnumerableQualifiedName);
-
                                     var method = GenerationEngine.HasImplementation(type, "Add",
                                         GenerationEngine.GetQualifiedName(elementType));
                                     var deconstructed = false;
 
                                     if (GenerationEngine.DeconstructionTypes.ContainsKey(
-                                        GenerationEngine.GetQualifiedName(elementType)))
+                                        GenerationEngine.GetQualifiedName(elementType)) && elementType is INamedTypeSymbol named)
                                     {
                                         deconstructed = GenerationEngine.HasImplementation(type, "Add",
-                                            elementType.TypeArguments
+                                            named.TypeArguments
                                                 .Select(GenerationEngine.GetNamedTypeSymbol)
                                                 .Select(GenerationEngine.GetQualifiedName)
                                                 .ToArray());
@@ -138,22 +137,25 @@ namespace Lusive.Events.Generator.Generation
                                     using (code.BeginScope(
                                         $"for (var {indexName} = 0; {indexName} < {prefix}Count; {indexName}++)"))
                                     {
-                                        var shouldBeTransient = method || deconstructed;
-                                        var variable = shouldBeTransient
-                                            ? $"{prefix}Transient"
-                                            : $"{prefix}Temp[{indexName}]";
+                                        var pointer = !method && !deconstructed;
+                                        var variable = pointer
+                                            ? $"{prefix}TempEntry"
+                                            : $"{prefix}Transient";
 
-                                        if (shouldBeTransient)
-                                            code.AppendLine(
-                                                $"{GenerationEngine.GetIdentifierWithArguments(elementType)} {variable};");
+                                        code.AppendLine(
+                                            $"{GenerationEngine.GetIdentifierWithArguments(elementType)} {variable};");
 
                                         Make(member, elementType, code, variable, location, scope);
 
-                                        if (method)
+                                        if (pointer)
+                                        {
+                                            code.AppendLine($"{prefix}Temp[{indexName}] = {variable};");
+                                        }
+                                        else if (method)
                                         {
                                             code.AppendLine($"{name}.Add({prefix}Transient);");
                                         }
-                                        else if (deconstructed)
+                                        else
                                         {
                                             var arguments = GenerationEngine
                                                 .DeconstructionTypes[GenerationEngine.GetQualifiedName(elementType)]
@@ -168,37 +170,41 @@ namespace Lusive.Events.Generator.Generation
                                         return;
                                     }
 
+                                    code.AppendLine($"// {type.MetadataName}");
+                                    code.AppendLine($"// VS {GenerationEngine.EnumerableQualifiedName}");
+                                    code.AppendLine($"// {elementType.MetadataName}");
+
+                                    if (GenerationEngine.GetQualifiedName(type) ==
+                                        GenerationEngine.EnumerableQualifiedName)
+                                    {
+                                        code.AppendLine($"{name} = {prefix}Temp;");
+
+                                        return;
+                                    }
+
                                     if (constructor != null)
                                     {
                                         code.AppendLine(
-                                            $"{name} = new {GenerationEngine.GetIdentifierWithArguments(enumerable)}({prefix}Temp);");
+                                            $"{name} = new {GenerationEngine.GetIdentifierWithArguments(type)}({prefix}Temp);");
 
                                         return;
                                     }
 
-                                    if (GenerationEngine.GetQualifiedName(type) !=
-                                        GenerationEngine.EnumerableQualifiedName)
+                                    var problem = new SerializationProblem
                                     {
-                                        var problem = new SerializationProblem
-                                        {
-                                            Descriptor = new DiagnosticDescriptor(ProblemId.EnumerableProperties,
-                                                "Enumerable Properties",
-                                                "Could not deserialize property '{0}' because enumerable type {1} did not contain a suitable way of adding items",
-                                                "serialization",
-                                                DiagnosticSeverity.Error, true),
-                                            Locations = new[] { member.Locations.FirstOrDefault(), location },
-                                            Format = new object[] { member.Name, type.Name, elementType.Name }
-                                        };
+                                        Descriptor = new DiagnosticDescriptor(ProblemId.EnumerableProperties,
+                                            "Enumerable Properties",
+                                            "Could not deserialize property '{0}' because enumerable type {1} did not contain a suitable way of adding items",
+                                            "serialization",
+                                            DiagnosticSeverity.Error, true),
+                                        Locations = new[] { member.Locations.FirstOrDefault(), location },
+                                        Format = new object[] { member.Name, type.Name, elementType.Name }
+                                    };
 
-                                        GenerationEngine.Instance.Problems.Add(problem);
+                                    GenerationEngine.Instance.Problems.Add(problem);
 
-                                        code.AppendLine(
-                                            $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
-
-                                        return;
-                                    }
-
-                                    code.AppendLine($"{name} = {prefix}Temp;");
+                                    code.AppendLine(
+                                        $"throw new Exception(\"{string.Format(problem.Descriptor.MessageFormat.ToString(), problem.Format)}\");");
                                 }
                             }
                             else
@@ -277,7 +283,8 @@ namespace Lusive.Events.Generator.Generation
                                                 $"{GenerationEngine.GetIdentifierWithArguments(valueType)} {GenerationEngine.GetVariableName(name + deep.Name)} = default;");
                                         }
 
-                                        GenerationEngine.Generate($"{GenerationEngine.GetVariableName(name)}", type, code,
+                                        GenerationEngine.Generate($"{GenerationEngine.GetVariableName(name)}", type,
+                                            code,
                                             GenerationType.Read);
 
                                         code.AppendLine(

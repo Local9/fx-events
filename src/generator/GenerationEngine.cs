@@ -319,21 +319,26 @@ namespace Lusive.Events.Generator
             return camel;
         }
 
-        public static string GetIdentifierWithArguments(ISymbol symbol)
+        public static string GetIdentifierWithArguments(ITypeSymbol symbol)
         {
             var builder = new StringBuilder();
+            var named = GetNamedTypeSymbol(symbol);
 
-            builder.Append(GetFullName(symbol));
+            builder.Append(GetFullName(named));
 
-            if (symbol is not INamedTypeSymbol named || named.TypeArguments == null ||
-                named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
+            if (named.TypeArguments != null && !named.TypeArguments.IsDefaultOrEmpty)
+            {
+                builder.Append("<");
+                builder.Append(string.Join(",",
+                    named.TypeArguments
+                        .Select(GetIdentifierWithArguments)));
+                builder.Append(">");
+            }
 
-            builder.Append("<");
-            builder.Append(string.Join(",",
-                named.TypeArguments
-                    .Select(GetNamedTypeSymbol)
-                    .Select(GetIdentifierWithArguments)));
-            builder.Append(">");
+            if (symbol is IArrayTypeSymbol)
+            {
+                builder.Append("[]");
+            }
 
             return builder.ToString();
         }
