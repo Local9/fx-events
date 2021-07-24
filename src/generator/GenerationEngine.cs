@@ -72,10 +72,7 @@ namespace Lusive.Events.Generator
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
         {
             if (context.Node is not ClassDeclarationSyntax classDecl) return;
-
-            var symbol = (INamedTypeSymbol) context.SemanticModel.GetDeclaredSymbol(context.Node);
-
-            if (symbol == null) return;
+            if (context.SemanticModel.GetDeclaredSymbol(context.Node) is not INamedTypeSymbol symbol) return;
             if (!HasMarkedAsSerializable(symbol)) return;
 
             var hasPartial = classDecl.Modifiers.Any(self => self.ToString() == "partial");
@@ -409,6 +406,16 @@ namespace Lusive.Events.Generator
             }
 
             return members.Where(self => !self.IsStatic);
+        }
+
+        public static INamedTypeSymbol GetNamedTypeSymbol(ITypeSymbol symbol)
+        {
+            return symbol switch
+            {
+                INamedTypeSymbol named => named,
+                IArrayTypeSymbol array => GetNamedTypeSymbol(array.ElementType),
+                _ => throw new ArgumentOutOfRangeException($"Could not convert to named type symbol: {symbol.Name}")
+            };
         }
     }
 }

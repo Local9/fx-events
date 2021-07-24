@@ -20,7 +20,7 @@ namespace Lusive.Events.Generator.Generation
 
                 if (nullable)
                 {
-                    var underlying = ((INamedTypeSymbol) type).TypeArguments.FirstOrDefault();
+                    var underlying = GenerationEngine.GetNamedTypeSymbol(type).TypeArguments.FirstOrDefault();
 
                     hasUnderlying = underlying != null;
                     type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
@@ -74,7 +74,7 @@ namespace Lusive.Events.Generator.Generation
                         case TypeKind.Struct:
                         case TypeKind.Class:
                             var enumerable = GenerationEngine.GetQualifiedName(type) == GenerationEngine.EnumerableQualifiedName
-                                ? (INamedTypeSymbol) type
+                                ? GenerationEngine.GetNamedTypeSymbol(type)
                                 : type.AllInterfaces.FirstOrDefault(self =>
                                     GenerationEngine.GetQualifiedName(self) == GenerationEngine.EnumerableQualifiedName);
 

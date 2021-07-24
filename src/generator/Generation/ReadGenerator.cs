@@ -18,14 +18,16 @@ namespace Lusive.Events.Generator.Generation
             {
                 var nullable = type.NullableAnnotation == NullableAnnotation.Annotated;
 
-                if (nullable)
                 {
-                    var underlying = ((INamedTypeSymbol) type).TypeArguments.FirstOrDefault();
+                    if (nullable)
+                    {
+                        var underlying = GenerationEngine.GetNamedTypeSymbol(type).TypeArguments.FirstOrDefault();
 
-                    type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
+                        type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
 
-                    code.AppendLine("if (reader.ReadBoolean())");
-                    code.Open();
+                        code.AppendLine("if (reader.ReadBoolean())");
+                        code.Open();
+                    }
                 }
 
                 if (GenerationEngine.DefaultSerialization.TryGetValue(GenerationEngine.GetQualifiedName(type),
@@ -34,7 +36,7 @@ namespace Lusive.Events.Generator.Generation
                     serialization.Deserialize(member, type, code, name,
                         GenerationEngine.GetIdentifierWithArguments(type),
                         location);
-                
+
                     return;
                 }
 
@@ -63,14 +65,14 @@ namespace Lusive.Events.Generator.Generation
                         case TypeKind.Class:
                             var enumerable = GenerationEngine.GetQualifiedName(type) ==
                                              GenerationEngine.EnumerableQualifiedName
-                                ? (INamedTypeSymbol) type
+                                ? GenerationEngine.GetNamedTypeSymbol(type)
                                 : type.AllInterfaces.FirstOrDefault(self =>
                                     GenerationEngine.GetQualifiedName(self) ==
                                     GenerationEngine.EnumerableQualifiedName);
 
                             if (enumerable != null)
                             {
-                                var elementType = (INamedTypeSymbol) enumerable.TypeArguments.First();
+                                var elementType = GenerationEngine.GetNamedTypeSymbol(enumerable.TypeArguments.First());
 
                                 if (type.TypeKind == TypeKind.Interface &&
                                     GenerationEngine.GetQualifiedName(type) != GenerationEngine.EnumerableQualifiedName)
@@ -101,7 +103,7 @@ namespace Lusive.Events.Generator.Generation
                                     code.AppendLine($"var {prefix}Count = reader.ReadInt32();");
 
                                     var constructor =
-                                        ((INamedTypeSymbol) type).Constructors.FirstOrDefault(
+                                        GenerationEngine.GetNamedTypeSymbol(type).Constructors.FirstOrDefault(
                                             self => GenerationEngine.GetQualifiedName(self.Parameters.FirstOrDefault()
                                                         ?.Type) ==
                                                     GenerationEngine.EnumerableQualifiedName);
@@ -229,13 +231,12 @@ namespace Lusive.Events.Generator.Generation
                                 }
                                 else
                                 {
-                                    var named = (INamedTypeSymbol) type;
                                     var hasConstructor = false;
 
-                                    foreach (var constructor in named.Constructors)
+                                    foreach (var constructor in GenerationEngine.GetNamedTypeSymbol(type).Constructors)
                                     {
                                         hasConstructor = true;
-                                        
+
                                         var parameters = constructor.Parameters;
                                         var members = GenerationEngine.GetMembers(type);
                                         var index = 0;
@@ -245,12 +246,12 @@ namespace Lusive.Events.Generator.Generation
                                             if (parameters.Length <= index)
                                             {
                                                 hasConstructor = false;
-                                             
+
                                                 continue;
                                             }
 
                                             var parameter = parameters[index];
-                                            
+
                                             if (parameter.Type.MetadataName != valueType.MetadataName)
                                             {
                                                 hasConstructor = false;
@@ -258,13 +259,13 @@ namespace Lusive.Events.Generator.Generation
 
                                             index++;
                                         }
-                                        
+
                                         if (hasConstructor)
                                         {
                                             break;
                                         }
                                     }
-                                    
+
                                     if (hasConstructor)
                                     {
                                         var members = GenerationEngine.GetMembers(type);
@@ -275,7 +276,8 @@ namespace Lusive.Events.Generator.Generation
                                                 $"{GenerationEngine.GetIdentifierWithArguments(valueType)} {GenerationEngine.GetCamelCase(name + deep.Name)} = default;");
                                         }
 
-                                        GenerationEngine.Generate($"{GenerationEngine.GetCamelCase(name)}", type, code, GenerationType.Read);
+                                        GenerationEngine.Generate($"{GenerationEngine.GetCamelCase(name)}", type, code,
+                                            GenerationType.Read);
 
                                         code.AppendLine(
                                             $"{name} = new {GenerationEngine.GetIdentifierWithArguments(type)}({string.Join(", ", members.Select(self => GenerationEngine.GetCamelCase(name + self.Item1.Name)))});");
