@@ -4,6 +4,7 @@
         <RootNamespace>Lusive.Events.Generator</RootNamespace>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>preview</LangVersion>
+        <OutputType>Library</OutputType>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>1591</NoWarn>

@@ -93,7 +93,7 @@ namespace Lusive.Events.Generator.Generation
                                             _ => current
                                         });
 
-                                    var prefix = GenerationEngine.GetCamelCase(name);
+                                    var prefix = GenerationEngine.GetVariableName(name);
 
                                     code.AppendLine($"var {prefix}Count = {name}.{countTechnique};");
                                     code.AppendLine($"writer.Write({prefix}Count);");
@@ -153,7 +153,7 @@ namespace Lusive.Events.Generator.Generation
                             }
                             else
                             {
-                                var prefix = GenerationEngine.GetCamelCase(name);
+                                var prefix = GenerationEngine.GetVariableName(name);
                                 var indexName = $"{prefix}Idx";
 
                                 using (code.BeginScope(

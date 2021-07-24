@@ -21,7 +21,7 @@ namespace Lusive.Events.Generator.Serialization
         {
             var named = GenerationEngine.GetNamedTypeSymbol(type);
             var types = named.TypeArguments;
-            var prefix = GenerationEngine.GetCamelCase(name);
+            var prefix = GenerationEngine.GetVariableName(name);
 
             code.AppendLine($"{GenerationEngine.GetQualifiedName(types[0])} {prefix}Key = default;");
             code.AppendLine($"{GenerationEngine.GetQualifiedName(types[1])} {prefix}Value = default;");

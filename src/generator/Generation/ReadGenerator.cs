@@ -98,7 +98,7 @@ namespace Lusive.Events.Generator.Generation
 
                                 using (code.BeginScope())
                                 {
-                                    var prefix = GenerationEngine.GetCamelCase(name);
+                                    var prefix = GenerationEngine.GetVariableName(name);
 
                                     code.AppendLine($"var {prefix}Count = reader.ReadInt32();");
 
@@ -274,14 +274,14 @@ namespace Lusive.Events.Generator.Generation
                                         foreach (var (deep, valueType) in GenerationEngine.GetMembers(type))
                                         {
                                             code.AppendLine(
-                                                $"{GenerationEngine.GetIdentifierWithArguments(valueType)} {GenerationEngine.GetCamelCase(name + deep.Name)} = default;");
+                                                $"{GenerationEngine.GetIdentifierWithArguments(valueType)} {GenerationEngine.GetVariableName(name + deep.Name)} = default;");
                                         }
 
-                                        GenerationEngine.Generate($"{GenerationEngine.GetCamelCase(name)}", type, code,
+                                        GenerationEngine.Generate($"{GenerationEngine.GetVariableName(name)}", type, code,
                                             GenerationType.Read);
 
                                         code.AppendLine(
-                                            $"{name} = new {GenerationEngine.GetIdentifierWithArguments(type)}({string.Join(", ", members.Select(self => GenerationEngine.GetCamelCase(name + self.Item1.Name)))});");
+                                            $"{name} = new {GenerationEngine.GetIdentifierWithArguments(type)}({string.Join(", ", members.Select(self => GenerationEngine.GetVariableName(name + self.Item1.Name)))});");
                                     }
                                     else
                                     {
@@ -302,7 +302,7 @@ namespace Lusive.Events.Generator.Generation
 
                             using (code.BeginScope())
                             {
-                                var prefix = GenerationEngine.GetCamelCase(name);
+                                var prefix = GenerationEngine.GetVariableName(name);
 
                                 code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
                                 code.AppendLine(

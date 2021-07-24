@@ -61,12 +61,20 @@ namespace Lusive.Events.Generator
             { "ulong", "UInt64" }
         };
 
-        public readonly List<WorkItem> WorkItems = new();
-        public readonly List<SerializationProblem> Problems = new();
-        public readonly List<string> Logs = new();
+        public List<WorkItem> WorkItems { get; private set; }
+        public List<SerializationProblem> Problems { get; private set; }
+        public List<string> Logs { get; private set; }
 
         private GenerationEngine()
         {
+            Init();
+        }
+
+        public void Init()
+        {
+            WorkItems = new List<WorkItem>();
+            Problems = new List<SerializationProblem>();
+            Logs = new List<string>();
         }
 
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
@@ -290,12 +298,25 @@ namespace Lusive.Events.Generator
             }
         }
 
-        public static string GetCamelCase(string value)
+        public static string GetVariableName(string value)
         {
             if (string.IsNullOrEmpty(value) || char.IsLower(value[0]))
                 return value;
 
-            return char.ToLower(value[0]) + value.Substring(1);
+            var camel = char.ToLower(value[0]) + value.Substring(1);
+            int punctuationIndex;
+
+            while ((punctuationIndex = camel.IndexOf('.')) != -1)
+            {
+                var array = camel.ToCharArray().ToList();
+
+                array.RemoveAt(punctuationIndex);
+                array[punctuationIndex] = char.ToUpper(array[punctuationIndex]);
+
+                camel = new string(array.ToArray());
+            }
+
+            return camel;
         }
 
         public static string GetIdentifierWithArguments(ISymbol symbol)
