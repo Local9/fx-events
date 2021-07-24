@@ -300,7 +300,7 @@ namespace Lusive.Events.Generator
 
         public static string GetVariableName(string value)
         {
-            if (string.IsNullOrEmpty(value) || char.IsLower(value[0]))
+            if (string.IsNullOrEmpty(value))
                 return value;
 
             var camel = char.ToLower(value[0]) + value.Substring(1);
