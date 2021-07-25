@@ -9,7 +9,6 @@ using Lusive.Events.Exceptions;
 using Lusive.Events.Message;
 using Lusive.Events.Models;
 using Lusive.Events.Serialization;
-using Lusive.Snowflake;
 
 namespace Lusive.Events
 {
@@ -25,11 +24,9 @@ namespace Lusive.Events
         protected abstract IEventLogger Logger { get; }
         protected abstract ISerialization Serialization { get; }
 
-        private List<Tuple<EventMessage, EventHandler>> _processed =
-            new List<Tuple<EventMessage, EventHandler>>();
-
-        private List<EventObservable> _queue = new List<EventObservable>();
-        private List<EventHandler> _handlers = new List<EventHandler>();
+        private List<Tuple<EventMessage, EventHandler>> _processed = new();
+        private List<EventObservable> _queue = new();
+        private List<EventHandler> _handlers = new();
 
         public EventDelayMethod DelayDelegate { get; set; }
         public EventMessagePreparation PrepareDelegate { get; set; }
@@ -38,7 +35,7 @@ namespace Lusive.Events
         public async Task ProcessInboundAsync(ISource source, byte[] serialized)
         {
             using var context =
-                new SerializationContext(EventConstant.InboundPipeline, null, Serialization, serialized);
+                new SerializationContext(EventConstant.InboundPipeline, "(Process) In", Serialization, serialized);
             var message = context.Deserialize<EventMessage>();
 
             await ProcessInboundAsync(message, source);
@@ -70,7 +67,8 @@ namespace Lusive.Events
                     var parameter = array[idx];
                     var type = parameterInfos[startingIndex + idx].ParameterType;
 
-                    using var context = new SerializationContext(message.Endpoint, $"(Out) Parameter Index {idx}", Serialization, parameter.Data);
+                    using var context = new SerializationContext(message.Endpoint, $"(Process) Parameter Index {idx}",
+                        Serialization, parameter.Data);
 
                     holder.Add(context.Deserialize(type));
                 }
@@ -113,13 +111,13 @@ namespace Lusive.Events
                 var resultType = result?.GetType() ?? typeof(object);
                 var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature, null);
 
-                using (var context = new SerializationContext(message.Endpoint, "Result", Serialization))
+                using (var context = new SerializationContext(message.Endpoint, "(Process) Result", Serialization))
                 {
                     context.Serialize(resultType, result);
                     response.Data = context.GetData();
                 }
 
-                using (var context = new SerializationContext(message.Endpoint, null, Serialization))
+                using (var context = new SerializationContext(message.Endpoint, "(Process) Response", Serialization))
                 {
                     context.Serialize(response);
 
@@ -142,7 +140,7 @@ namespace Lusive.Events
         public void ProcessOutbound(byte[] serialized)
         {
             using var context =
-                new SerializationContext(EventConstant.OutboundPipeline, null, Serialization, serialized);
+                new SerializationContext(EventConstant.OutboundPipeline, "(Process) Out", Serialization, serialized);
             var response = context.Deserialize<EventResponseMessage>();
 
             ProcessOutbound(response);
@@ -168,7 +166,7 @@ namespace Lusive.Events
                 var argument = args[idx];
                 var type = argument?.GetType() ?? typeof(object);
 
-                using var context = new SerializationContext(endpoint, $"(In) Parameter Index '{idx}'",
+                using var context = new SerializationContext(endpoint, $"(Send) Parameter Index '{idx}'",
                     Serialization);
 
                 context.Serialize(type, argument);
@@ -186,7 +184,7 @@ namespace Lusive.Events
                 stopwatch.Start();
             }
 
-            using (var context = new SerializationContext(endpoint, null, Serialization))
+            using (var context = new SerializationContext(endpoint, "(Send) Output", Serialization))
             {
                 context.Serialize(message);
 
@@ -209,7 +207,7 @@ namespace Lusive.Events
 
             _queue.Add(new EventObservable(message, data =>
             {
-                using var context = new SerializationContext(endpoint, "Response", Serialization, data);
+                using var context = new SerializationContext(endpoint, "(Get) Response", Serialization, data);
 
                 holder.Data = data;
                 holder.Value = context.Deserialize<T>();

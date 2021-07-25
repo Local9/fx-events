@@ -10,7 +10,7 @@ namespace Lusive.Events.Message
     public partial class EventMessage : IMessage
     {
         public SnowflakeId Id { get; set; }
-        public string Signature { get; set; }
+        public string? Signature { get; set; }
         public string Endpoint { get; set; }
         public EventFlowType Flow { get; set; }
         public IEnumerable<EventParameter> Parameters { get; set; }
