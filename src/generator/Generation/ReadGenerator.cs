@@ -112,7 +112,8 @@ namespace Lusive.Events.Generator.Generation
                                     var deconstructed = false;
 
                                     if (GenerationEngine.DeconstructionTypes.ContainsKey(
-                                        GenerationEngine.GetQualifiedName(elementType)) && elementType is INamedTypeSymbol named)
+                                            GenerationEngine.GetQualifiedName(elementType)) &&
+                                        elementType is INamedTypeSymbol named)
                                     {
                                         deconstructed = GenerationEngine.HasImplementation(type, "Add",
                                             named.TypeArguments
@@ -170,10 +171,6 @@ namespace Lusive.Events.Generator.Generation
                                         return;
                                     }
 
-                                    code.AppendLine($"// {type.MetadataName}");
-                                    code.AppendLine($"// VS {GenerationEngine.EnumerableQualifiedName}");
-                                    code.AppendLine($"// {elementType.MetadataName}");
-
                                     if (GenerationEngine.GetQualifiedName(type) ==
                                         GenerationEngine.EnumerableQualifiedName)
                                     {
@@ -230,7 +227,9 @@ namespace Lusive.Events.Generator.Generation
                                     return;
                                 }
 
-                                if (GenerationEngine.HasImplementation(type, GenerationEngine.UnpackingMethod) ||
+                                if (GenerationEngine.GetNamedTypeSymbol(type).Constructors.Any(self =>
+                                        self.Parameters.Length == 1 &&
+                                        self.Parameters.Single().Type.MetadataName == "BinaryReader") ||
                                     GenerationEngine.HasMarkedAsSerializable(type))
                                 {
                                     code.AppendLine(
@@ -245,7 +244,7 @@ namespace Lusive.Events.Generator.Generation
                                         hasConstructor = true;
 
                                         var parameters = constructor.Parameters;
-                                        var members = GenerationEngine.GetMembers(type);
+                                        var members = GenerationEngine.GetMembers(type, GenerationType.Read);
                                         var index = 0;
 
                                         foreach (var (_, valueType) in members)
@@ -275,9 +274,10 @@ namespace Lusive.Events.Generator.Generation
 
                                     if (hasConstructor)
                                     {
-                                        var members = GenerationEngine.GetMembers(type);
+                                        var members = GenerationEngine.GetMembers(type, GenerationType.Read);
 
-                                        foreach (var (deep, valueType) in GenerationEngine.GetMembers(type))
+                                        foreach (var (deep, valueType) in GenerationEngine.GetMembers(type,
+                                            GenerationType.Read))
                                         {
                                             code.AppendLine(
                                                 $"{GenerationEngine.GetIdentifierWithArguments(valueType)} {GenerationEngine.GetVariableName(name + deep.Name)} = default;");
@@ -312,16 +312,24 @@ namespace Lusive.Events.Generator.Generation
                                 var prefix = GenerationEngine.GetVariableName(name);
 
                                 code.AppendLine($"var {prefix}Length = reader.ReadInt32();");
-                                code.AppendLine(
-                                    $"{name} = new {GenerationEngine.GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
 
-                                var indexName = $"{prefix}Idx";
-
-                                using (code.BeginScope(
-                                    $"for (var {indexName} = 0; {indexName} < {prefix}Length; {indexName}++)"))
+                                if (GenerationEngine.GetQualifiedName(array.ElementType) == "System.Byte")
                                 {
-                                    Make(member, array.ElementType, code, $"{name}[{indexName}]", location,
-                                        scope);
+                                    code.AppendLine($"{name} = reader.ReadBytes({prefix}Length);");
+                                }
+                                else
+                                {
+                                    var indexName = $"{prefix}Idx";
+
+                                    code.AppendLine(
+                                        $"{name} = new {GenerationEngine.GetIdentifierWithArguments(array.ElementType)}[{prefix}Length];");
+
+                                    using (code.BeginScope(
+                                        $"for (var {indexName} = 0; {indexName} < {prefix}Length; {indexName}++)"))
+                                    {
+                                        Make(member, array.ElementType, code, $"{name}[{indexName}]", location,
+                                            scope);
+                                    }
                                 }
                             }
 

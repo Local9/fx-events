@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Lusive.Events.Generator.Extensions;
 using Lusive.Events.Generator.Generation;
 using Lusive.Events.Generator.Models;
 using Lusive.Events.Generator.Problems;
@@ -131,8 +132,8 @@ namespace Lusive.Events.Generator
 
         public CodeWriter Compile(WorkItem item)
         {
-            var symbol = item.TypeSymbol;
             var code = new CodeWriter();
+            var symbol = item.TypeSymbol;
             var imports = new Dictionary<string, bool>
             {
                 ["System"] = true, ["System.IO"] = true, ["System.Linq"] = true,
@@ -200,56 +201,21 @@ namespace Lusive.Events.Generator
             return code;
         }
 
-        public static IEnumerable<Tuple<ISymbol, ITypeSymbol>> GetMembers(ITypeSymbol symbol)
-        {
-            var members = new List<Tuple<ISymbol, bool>>();
-            var overrides = new List<string>();
-
-            foreach (var member in GetAllMembers(symbol))
-            {
-                if (member is not IPropertySymbol && member is not IFieldSymbol) continue;
-                if (overrides.Contains(member.Name)) continue;
-                if (member.IsOverride)
-                {
-                    members.RemoveAll(self => self.Item1.Name == member.Name);
-                    overrides.Add(member.Name);
-                }
-
-                var attributes = member.GetAttributes();
-
-                if (attributes.Any(self => self.AttributeClass is { Name: "IgnoreAttribute" })) continue;
-
-                var forced = attributes.Any(self => self.AttributeClass is { Name: "ForceAttribute" });
-
-                if (!forced && member.DeclaredAccessibility != Accessibility.Public) continue;
-                if (member is IPropertySymbol propertySymbol && !forced && (
-                    propertySymbol.IsIndexer || propertySymbol.IsReadOnly ||
-                    propertySymbol.IsWriteOnly)) continue;
-
-                members.Add(Tuple.Create(member, forced));
-            }
-
-            foreach (var (member, forced) in members)
-            {
-                if (forced && member is IPropertySymbol { IsReadOnly: true }) continue;
-
-                var valueType = member switch
-                {
-                    IPropertySymbol propertySymbol => propertySymbol.Type,
-                    IFieldSymbol fieldSymbol => fieldSymbol.Type,
-                    _ => null
-                };
-
-                if (valueType == null) continue;
-
-                yield return Tuple.Create(member, valueType);
-            }
-        }
-
         public static void Generate(string target, ITypeSymbol symbol, CodeWriter code, GenerationType type)
         {
-            foreach (var (member, valueType) in GetMembers(symbol))
+            foreach (var (member, valueType) in GetMembers(symbol, type))
             {
+                var skip = member switch
+                {
+                    IPropertySymbol property => type == GenerationType.Read
+                        ? property.IsReadOnly
+                        : property.IsWriteOnly,
+                    IFieldSymbol field => type == GenerationType.Read && field.IsReadOnly,
+                    _ => false
+                };
+
+                if (skip) continue;
+
                 code.AppendLine();
                 code.AppendLine($"// Member: {member.Name} ({valueType.MetadataName})");
 
@@ -271,6 +237,67 @@ namespace Lusive.Events.Generator
                             throw new ArgumentOutOfRangeException(nameof(type), type, null);
                     }
                 }
+            }
+        }
+
+        public static IEnumerable<Tuple<ISymbol, ITypeSymbol>> GetMembers(ITypeSymbol symbol, GenerationType type)
+        {
+            var members = new List<ISymbol>();
+            var overrides = new List<string>();
+
+            foreach (var member in GetAllMembers(symbol))
+            {
+                if (member is not IPropertySymbol && member is not IFieldSymbol) continue;
+                if (overrides.Contains(member.Name)) continue;
+                if (member.IsOverride)
+                {
+                    overrides.Add(member.Name);
+                }
+
+                var attributes = member.GetAttributes();
+
+                var ignored = attributes.FirstOrDefault(self => self.AttributeClass is
+                    { Name: "IgnoreAttribute" });
+                var isIgnored = ignored != null && (type == GenerationType.Read
+                    ? ignored.GetAttributeValue("Read", true)
+                    : ignored.GetAttributeValue("Write", true));
+
+                if (isIgnored) continue;
+
+                var forced =
+                    attributes.FirstOrDefault(self => self.AttributeClass is { Name: "ForceAttribute" });
+                var isForced = forced != null && (type == GenerationType.Read
+                    ? forced.GetAttributeValue("Read", true)
+                    : forced.GetAttributeValue("Write", true));
+
+                if (!isForced && member.DeclaredAccessibility != Accessibility.Public) continue;
+
+                switch (member)
+                {
+                    case IFieldSymbol fieldSymbol when !isForced && fieldSymbol.IsReadOnly:
+                    case IPropertySymbol propertySymbol when propertySymbol.IsIndexer ||
+                                                             !isForced && (propertySymbol.IsReadOnly ||
+                                                                           propertySymbol.IsWriteOnly):
+                        continue;
+                    default:
+                        members.Add(member);
+
+                        break;
+                }
+            }
+
+            foreach (var member in members)
+            {
+                var valueType = member switch
+                {
+                    IPropertySymbol propertySymbol => propertySymbol.Type,
+                    IFieldSymbol fieldSymbol => fieldSymbol.Type,
+                    _ => null
+                };
+
+                if (valueType == null) continue;
+
+                yield return Tuple.Create(member, valueType);
             }
         }
 

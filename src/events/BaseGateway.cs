@@ -9,6 +9,7 @@ using Lusive.Events.Exceptions;
 using Lusive.Events.Message;
 using Lusive.Events.Models;
 using Lusive.Events.Serialization;
+using Lusive.Snowflake;
 
 namespace Lusive.Events
 {

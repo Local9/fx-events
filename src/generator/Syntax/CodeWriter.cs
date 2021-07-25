@@ -8,18 +8,21 @@ namespace Lusive.Events.Generator.Syntax
         public int Scope;
 
         private readonly StringBuilder _content;
+        private int _unique;
         private int _indentation;
         private readonly ScopeTracker _tracker;
 
         public CodeWriter()
         {
             _content = new StringBuilder();
-            _tracker = new ScopeTracker(this, null);
+            _tracker = new ScopeTracker(_unique, this, null);
         }
 
         public ScopeTracker Encapsulate()
         {
-            return new(this, Scope);
+            _unique++;
+
+            return new ScopeTracker(_unique, this, Scope);
         }
 
         public void Append(string line) => _content.Append(line);
@@ -43,16 +46,16 @@ namespace Lusive.Events.Generator.Syntax
             _content.Append(new string('\t', _indentation)).AppendLine("}");
         }
 
-        public IDisposable BeginScope(string line)
+        public IDisposable BeginScope(string line, bool scope = false)
         {
             AppendLine(line);
 
-            return BeginScope();
+            return BeginScope(scope);
         }
 
-        public IDisposable BeginScope()
+        public IDisposable BeginScope(bool scope = false)
         {
-            Open(false);
+            Open(scope);
 
             return _tracker;
         }
@@ -62,22 +65,21 @@ namespace Lusive.Events.Generator.Syntax
 
     public class ScopeTracker : IDisposable
     {
-        private int? Scope { get; }
-        private CodeWriter Parent { get; }
+        private readonly CodeWriter _parent;
+        private readonly int _unique;
+        private int? _recordedScope;
         private int _references;
 
-        public bool HasReferences => _references > 0;
-
-        public ScopeTracker(CodeWriter parent, int? scope)
+        public ScopeTracker(int unique, CodeWriter parent, int? scope)
         {
-            Parent = parent;
-            Scope = scope;
+            _unique = unique;
+            _parent = parent;
+            _recordedScope = scope;
         }
 
         public ScopeTracker Reference()
         {
-            // Is scopeable tracker?
-            if (Scope != null)
+            if (_recordedScope != null)
                 _references++;
 
             return this;
@@ -85,24 +87,24 @@ namespace Lusive.Events.Generator.Syntax
 
         public void Dispose()
         {
-            if (HasReferences)
+            if (_references > 0)
             {
                 _references--;
 
                 return;
             }
 
-            if (Scope.HasValue)
+            if (_recordedScope.HasValue)
             {
-                while (Parent.Scope > Scope)
+                while (_parent.Scope > _recordedScope)
                 {
-                    Parent.Close();
-                    Parent.Scope--;
+                    _parent.Close();
+                    _parent.Scope--;
                 }
             }
             else
             {
-                Parent.Close();
+                _parent.Close();
             }
         }
     }
