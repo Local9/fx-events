@@ -28,9 +28,9 @@ namespace Lusive.Events
         private List<EventObservable> _queue = new();
         private List<EventHandler> _handlers = new();
 
-        public EventDelayMethod DelayDelegate { get; set; }
-        public EventMessagePreparation PrepareDelegate { get; set; }
-        public EventMessagePush PushDelegate { get; set; }
+        public EventDelayMethod? DelayDelegate { get; set; }
+        public EventMessagePreparation? PrepareDelegate { get; set; }
+        public EventMessagePush? PushDelegate { get; set; }
 
         public async Task ProcessInboundAsync(ISource source, byte[] serialized)
         {
@@ -51,12 +51,17 @@ namespace Lusive.Events
                 var takesSource = method.GetParameters().Any(self => self.ParameterType == source.GetType());
                 var startingIndex = takesSource ? 1 : 0;
 
+                object CallInternalDelegate()
+                {
+                    return @delegate.DynamicInvoke(parameters.ToArray());
+                }
+
                 if (takesSource)
                 {
                     parameters.Add(source);
                 }
 
-                if (message.Parameters == null) return @delegate.DynamicInvoke(parameters.ToArray());
+                if (message.Parameters == null) return CallInternalDelegate();
 
                 var array = message.Parameters.ToArray();
                 var holder = new List<object>();
@@ -75,7 +80,7 @@ namespace Lusive.Events
 
                 parameters.AddRange(holder.ToArray());
 
-                return @delegate.DynamicInvoke(parameters.ToArray());
+                return CallInternalDelegate();
             }
 
             if (message.Flow == EventFlowType.Circular)
@@ -85,12 +90,12 @@ namespace Lusive.Events
                                    throw new Exception($"Could not find a handler for endpoint '{message.Endpoint}'");
                 var result = InvokeDelegate(subscription);
 
-                if (result?.GetType().GetGenericTypeDefinition() == typeof(Task<>))
+                if (result.GetType().GetGenericTypeDefinition() == typeof(Task<>))
                 {
                     using var token = new CancellationTokenSource();
 
                     var task = (Task) result;
-                    var timeout = Task.Run(async () => await DelayDelegate(10000), token.Token);
+                    var timeout = DelayDelegate!(10000);
                     var completed = await Task.WhenAny(task, timeout);
 
                     if (completed == task)
@@ -111,10 +116,16 @@ namespace Lusive.Events
                 var resultType = result?.GetType() ?? typeof(object);
                 var response = new EventResponseMessage(message.Id, message.Endpoint, message.Signature, null);
 
-                using (var context = new SerializationContext(message.Endpoint, "(Process) Result", Serialization))
+                if (result != null)
                 {
+                    using var context = new SerializationContext(message.Endpoint, "(Process) Result", Serialization);
+
                     context.Serialize(resultType, result);
                     response.Data = context.GetData();
+                }
+                else
+                {
+                    response.Data = Array.Empty<byte>();
                 }
 
                 using (var context = new SerializationContext(message.Endpoint, "(Process) Response", Serialization))
@@ -164,7 +175,7 @@ namespace Lusive.Events
             for (var idx = 0; idx < args.Length; idx++)
             {
                 var argument = args[idx];
-                var type = argument?.GetType() ?? typeof(object);
+                var type = argument.GetType();
 
                 using var context = new SerializationContext(endpoint, $"(Send) Parameter Index '{idx}'",
                     Serialization);
@@ -217,7 +228,7 @@ namespace Lusive.Events
 
             while (!token.IsCancellationRequested)
             {
-                await DelayDelegate();
+                await DelayDelegate!();
             }
 
             var elapsed = stopwatch.Elapsed.TotalMilliseconds;

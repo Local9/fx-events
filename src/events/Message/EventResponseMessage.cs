@@ -11,9 +11,9 @@ namespace Lusive.Events.Message
         public SnowflakeId Id { get; set; }
         public string Endpoint { get; set; }
         public string? Signature { get; set; }
-        public byte[] Data { get; set; }
+        public byte[]? Data { get; set; }
 
-        public EventResponseMessage(SnowflakeId id, string endpoint, string signature, byte[] data)
+        public EventResponseMessage(SnowflakeId id, string endpoint, string? signature, byte[]? data)
         {
             Id = id;
             Endpoint = endpoint;

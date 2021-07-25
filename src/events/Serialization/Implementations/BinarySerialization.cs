@@ -31,13 +31,13 @@ namespace Lusive.Events.Serialization.Implementations
             Logger = logger;
         }
 
-        public void Serialize(Type type, object value, SerializationContext context)
+        public void Serialize(Type type, object? value, SerializationContext context)
         {
             var writer = context.Writer;
 
             try
             {
-                writer.Write(value != null);
+                writer!.Write(value != null);
 
                 if (value == null)
                 {
@@ -199,7 +199,7 @@ namespace Lusive.Events.Serialization.Implementations
                                 typeof(SerializationObjectActivator), expression,
                                 parameter).Compile();
 
-                            activator.Invoke(context.Writer);
+                            activator.Invoke(context.Writer!);
 
                             break;
                         }
@@ -222,7 +222,7 @@ namespace Lusive.Events.Serialization.Implementations
         {
             try
             {
-                var exists = context.Reader.ReadBoolean();
+                var exists = context.Reader!.ReadBoolean();
 
                 if (!exists)
                 {
@@ -297,8 +297,8 @@ namespace Lusive.Events.Serialization.Implementations
                         ((VoidMethod) Expression.Lambda(typeof(VoidMethod), GetBlock(idxAssign)).Compile()).Invoke();
                     }
 
-                    if (typeof(T).IsAssignableFrom(arrayType))
-                    {
+                    if (arrayType == typeof(T))
+                    {   
                         return (T) array;
                     }
 
@@ -475,6 +475,8 @@ namespace Lusive.Events.Serialization.Implementations
         {
             try
             {
+                if (context.Writer == null) throw new Exception("SerializationContext.Writer is null.");
+                
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:
@@ -539,10 +541,12 @@ namespace Lusive.Events.Serialization.Implementations
             }
         }
 
-        public object DeserializePrimitive(Type type, SerializationContext context)
+        public object? DeserializePrimitive(Type type, SerializationContext context)
         {
             try
             {
+                if (context.Reader == null) throw new Exception("SerializationContext.Reader is null.");
+                
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:
