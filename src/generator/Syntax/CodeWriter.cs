@@ -5,57 +5,41 @@ namespace Lusive.Events.Generator.Syntax
 {
     public class CodeWriter
     {
-        public int Scope;
-
         private readonly StringBuilder _content;
-        private int _unique;
-        private int _indentation;
+        private int _scope;
         private readonly ScopeTracker _tracker;
 
+        public int CurrentScope => _scope;
+        
         public CodeWriter()
         {
             _content = new StringBuilder();
-            _tracker = new ScopeTracker(_unique, this, null);
+            _tracker = new ScopeTracker(this);
         }
 
-        public ScopeTracker Encapsulate()
-        {
-            _unique++;
-
-            return new ScopeTracker(_unique, this, Scope);
-        }
-
-        public void Append(string line) => _content.Append(line);
-        public void AppendLine(string line) => _content.Append(new string('\t', _indentation)).AppendLine(line);
+        public void AppendLine(string line) => _content.Append(new string('\t', _scope)).AppendLine(line);
         public void AppendLine() => _content.AppendLine();
 
-        public void Open(bool scope = true)
+        public void Open()
         {
-            _content.Append(new string('\t', _indentation)).AppendLine("{");
-            _indentation++;
-
-            if (scope)
-            {
-                Scope++;
-            }
+            _content.Append(new string('\t', _scope)).AppendLine("{");
+            _scope++;
         }
 
         public void Close()
         {
-            _indentation--;
-            _content.Append(new string('\t', _indentation)).AppendLine("}");
+            _scope--;
+            _content.Append(new string('\t', _scope)).AppendLine("}");
         }
 
-        public IDisposable BeginScope(string line, bool scope = false)
+        public IDisposable Scope(string? line = null)
         {
-            AppendLine(line);
+            if (line != null)
+            {
+                AppendLine(line);
+            }
 
-            return BeginScope(scope);
-        }
-
-        public IDisposable BeginScope(bool scope = false)
-        {
-            Open(scope);
+            Open();
 
             return _tracker;
         }
@@ -63,49 +47,18 @@ namespace Lusive.Events.Generator.Syntax
         public override string ToString() => _content.ToString();
     }
 
-    public class ScopeTracker : IDisposable
+    internal class ScopeTracker : IDisposable
     {
         private readonly CodeWriter _parent;
-        private readonly int _unique;
-        private int? _recordedScope;
-        private int _references;
 
-        public ScopeTracker(int unique, CodeWriter parent, int? scope)
+        public ScopeTracker(CodeWriter parent)
         {
-            _unique = unique;
             _parent = parent;
-            _recordedScope = scope;
-        }
-
-        public ScopeTracker Reference()
-        {
-            if (_recordedScope != null)
-                _references++;
-
-            return this;
         }
 
         public void Dispose()
         {
-            if (_references > 0)
-            {
-                _references--;
-
-                return;
-            }
-
-            if (_recordedScope.HasValue)
-            {
-                while (_parent.Scope > _recordedScope)
-                {
-                    _parent.Close();
-                    _parent.Scope--;
-                }
-            }
-            else
-            {
-                _parent.Close();
-            }
+            _parent.Close();
         }
     }
 }

@@ -48,14 +48,14 @@ namespace Lusive.Events.Serialization.Implementations
                 {
                     throw new SerializationException(context, type, "Cannot serialize values of 'System.Object' type");
                 }
-                
+
                 var nullableUnderlying = Nullable.GetUnderlyingType(type);
-                
+
                 if (nullableUnderlying != null)
                 {
                     type = nullableUnderlying;
                 }
-                
+
                 if (type.IsEnum)
                 {
                     SerializePrimitive(typeof(int), Convert.ChangeType(value, TypeCode.Int32), context);
@@ -189,8 +189,7 @@ namespace Lusive.Events.Serialization.Implementations
 
                             if (Equals(method, null))
                             {
-                                throw new SerializationException(context, type,
-                                    $"Failed to find \"{PackMethod}\" method; are you sure you have annotated the type with [Serialization] and the partial keyword?");
+                                throw new SerializationException(context, type, "Type is not serializable.");
                             }
 
                             var parameter = Expression.Parameter(typeof(BinaryWriter), "writer");
@@ -228,14 +227,14 @@ namespace Lusive.Events.Serialization.Implementations
                 {
                     return default;
                 }
-                
+
                 var nullableUnderlying = Nullable.GetUnderlyingType(type);
-                
+
                 if (nullableUnderlying != null)
                 {
                     type = nullableUnderlying;
                 }
-                
+
                 if (type.IsEnum)
                 {
                     var handle = DeserializePrimitive(typeof(int), context);
@@ -298,7 +297,7 @@ namespace Lusive.Events.Serialization.Implementations
                     }
 
                     if (arrayType == typeof(T))
-                    {   
+                    {
                         return (T) array;
                     }
 
@@ -438,8 +437,7 @@ namespace Lusive.Events.Serialization.Implementations
 
                     if (constructor == null)
                     {
-                        throw new SerializationException(context, type,
-                            $"Failed to find a suitable constructor with BinaryReader parameter in type: {type.Name}");
+                        throw new SerializationException(context, type, "Type is not deserializable.");
                     }
 
                     var parameter = Expression.Parameter(typeof(BinaryReader), "reader");
@@ -449,7 +447,7 @@ namespace Lusive.Events.Serialization.Implementations
                     {
                         var generic = typeof(DeserializationObjectActivator<>).MakeGenericType(type);
                         var activator = Expression.Lambda(generic, expression, parameter).Compile();
-           
+
                         return (T) activator.DynamicInvoke(context.Reader);
                     }
                     else
@@ -476,7 +474,7 @@ namespace Lusive.Events.Serialization.Implementations
             try
             {
                 if (context.Writer == null) throw new Exception("SerializationContext.Writer is null.");
-                
+
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:
@@ -546,7 +544,7 @@ namespace Lusive.Events.Serialization.Implementations
             try
             {
                 if (context.Reader == null) throw new Exception("SerializationContext.Reader is null.");
-                
+
                 switch (Type.GetTypeCode(type))
                 {
                     case TypeCode.Boolean:

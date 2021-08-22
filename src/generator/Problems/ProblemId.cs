@@ -2,8 +2,7 @@
 {
     public static class ProblemId
     {
-        public const string SerializationMarking = "SG0001";
-        public const string InterfaceProperties = "SG0002";
-        public const string EnumerableProperties = "SG0003";
+        public const string ExceptionOccured = "FX0001";
+        public const string SerializationMarking = "FX0002";
     }
 }

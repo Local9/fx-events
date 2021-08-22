@@ -28,62 +28,30 @@ namespace Lusive.Events
         private List<EventObservable> _queue = new();
         private List<EventHandler> _handlers = new();
 
+        public delegate void EventPipeline(PipelineEvent type, NetworkEvent value);
+
+        public event EventPipeline Pipeline;
+
         public EventDelayMethod? DelayDelegate { get; set; }
         public EventMessagePreparation? PrepareDelegate { get; set; }
         public EventMessagePush? PushDelegate { get; set; }
 
-        public async Task ProcessInboundAsync(ISource source, byte[] serialized)
+        public async Task ProcessInvokeAsync(ISource source, byte[] serialized)
         {
             using var context =
-                new SerializationContext(EventConstant.InboundPipeline, "(Process) In", Serialization, serialized);
+                new SerializationContext(EventConstant.InvokePipeline, "(Process) In", Serialization, serialized);
             var message = context.Deserialize<EventMessage>();
 
-            await ProcessInboundAsync(message, source);
+            await ProcessInvokeAsync(message, source);
         }
 
-        public async Task ProcessInboundAsync(EventMessage message, ISource source)
+        public async Task ProcessInvokeAsync(EventMessage message, ISource source)
         {
-            object InvokeDelegate(EventHandler subscription)
-            {
-                var parameters = new List<object>();
-                var @delegate = subscription.Delegate;
-                var method = @delegate.Method;
-                var takesSource = method.GetParameters().Any(self => self.ParameterType == source.GetType());
-                var startingIndex = takesSource ? 1 : 0;
-
-                object CallInternalDelegate()
-                {
-                    return @delegate.DynamicInvoke(parameters.ToArray());
-                }
-
-                if (takesSource)
-                {
-                    parameters.Add(source);
-                }
-
-                if (message.Parameters == null) return CallInternalDelegate();
-
-                var array = message.Parameters.ToArray();
-                var holder = new List<object>();
-                var parameterInfos = @delegate.Method.GetParameters();
-
-                for (var idx = 0; idx < array.Length; idx++)
-                {
-                    var parameter = array[idx];
-                    var type = parameterInfos[startingIndex + idx].ParameterType;
-
-                    using var context = new SerializationContext(message.Endpoint, $"(Process) Parameter Index {idx}",
-                        Serialization, parameter.Data);
-
-                    holder.Add(context.Deserialize(type));
-                }
-
-                parameters.AddRange(holder.ToArray());
-
-                return CallInternalDelegate();
-            }
-
-            if (message.Flow == EventFlowType.Circular)
+            var structure = new NetworkEvent(EventConstant.ServerSender, message);
+            
+            Pipeline.Invoke(PipelineEvent.Received, structure);
+            
+            if (message.FlowType == EventFlowType.Circular)
             {
                 var stopwatch = StopwatchUtil.StartNew();
                 var subscription = _handlers.SingleOrDefault(self => self.Endpoint == message.Endpoint) ??
@@ -134,9 +102,13 @@ namespace Lusive.Events
 
                     var data = context.GetData();
 
-                    PushDelegate(EventConstant.OutboundPipeline, source, data);
+                    PushDelegate(EventConstant.ReplyPipeline, source, data);
                     Logger.Debug(
                         $"[{message.Endpoint}] Responded to {source} with {data.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                    
+                    structure.SetResponseData(result, GetCurrentTimestamp());
+                    
+                    Pipeline.Invoke(PipelineEvent.Response, structure);
                 }
             }
             else
@@ -146,18 +118,58 @@ namespace Lusive.Events
                     InvokeDelegate(handler);
                 }
             }
+
+            object InvokeDelegate(EventHandler subscription)
+            {
+                var parameters = new List<object>();
+                var @delegate = subscription.Delegate;
+                var method = @delegate.Method;
+                var takesSource = method.GetParameters().Any(self => self.ParameterType == source.GetType());
+                var startingIndex = takesSource ? 1 : 0;
+
+                object CallInternalDelegate()
+                {
+                    return @delegate.DynamicInvoke(parameters.ToArray());
+                }
+
+                if (takesSource)
+                {
+                    parameters.Add(source);
+                }
+
+                if (message.Parameters == null) return CallInternalDelegate();
+
+                var array = message.Parameters.ToArray();
+                var holder = new List<object>();
+                var parameterInfos = @delegate.Method.GetParameters();
+
+                for (var idx = 0; idx < array.Length; idx++)
+                {
+                    var parameter = array[idx];
+                    var type = parameterInfos[startingIndex + idx].ParameterType;
+
+                    using var context = new SerializationContext(message.Endpoint, $"(Process) Parameter Index {idx}",
+                        Serialization, parameter.Data);
+
+                    holder.Add(context.Deserialize(type));
+                }
+
+                parameters.AddRange(holder.ToArray());
+
+                return CallInternalDelegate();
+            }
         }
 
-        public void ProcessOutbound(byte[] serialized)
+        public void ProcessReply(byte[] serialized)
         {
             using var context =
-                new SerializationContext(EventConstant.OutboundPipeline, "(Process) Out", Serialization, serialized);
+                new SerializationContext(EventConstant.ReplyPipeline, "(Process) Out", Serialization, serialized);
             var response = context.Deserialize<EventResponseMessage>();
 
-            ProcessOutbound(response);
+            ProcessReply(response);
         }
 
-        public void ProcessOutbound(EventResponseMessage response)
+        public void ProcessReply(EventResponseMessage response)
         {
             var waiting = _queue.SingleOrDefault(self => self.Message.Id == response.Id) ??
                           throw new Exception($"No request matching {response.Id} was found.");
@@ -167,6 +179,59 @@ namespace Lusive.Events
         }
 
         protected async Task<EventMessage> SendInternal(EventFlowType flow, ISource source, string endpoint,
+            params object[] args)
+        {
+            var message = await CreateAndSendAsync(flow, source, endpoint, args);
+            var structure = new NetworkEvent(EventConstant.LocalSender, message);
+
+            Pipeline.Invoke(PipelineEvent.Sent, structure);
+
+            return message;
+        }
+
+        protected async Task<T> GetInternal<T>(ISource source, string endpoint, params object[] args)
+        {
+            var stopwatch = StopwatchUtil.StartNew();
+            var message = await CreateAndSendAsync(EventFlowType.Circular, source, endpoint, args);
+            var structure = new NetworkEvent(EventConstant.LocalSender, message);
+            var completion = new TaskCompletionSource<EventValueHolder<T>>();
+
+            Pipeline.Invoke(PipelineEvent.Sent, structure);
+
+            _queue.Add(new EventObservable(message, data =>
+            {
+                using var context = new SerializationContext(endpoint, "(Get) Response", Serialization, data);
+
+                var holder = new EventValueHolder<T>
+                {
+                    Data = data,
+                    Value = context.Deserialize<T>()
+                };
+
+                completion.TrySetResult(holder);
+            }));
+
+            await Task.WhenAny(completion.Task);
+
+            var holder = await completion.Task;
+            var elapsed = stopwatch.Elapsed.TotalMilliseconds;
+
+            structure.SetResponseData(holder.Value, GetCurrentTimestamp());
+            Pipeline.Invoke(PipelineEvent.Response, structure);
+
+            Logger.Debug(
+                $"[{message.Endpoint}] Received response from {source} of {holder.Data.Length} byte(s) in {elapsed}ms");
+
+            return holder.Value;
+        }
+
+        public void Mount(string endpoint, Delegate @delegate)
+        {
+            Logger.Debug($"Mounted: {endpoint}");
+            _handlers.Add(new EventHandler(endpoint, @delegate));
+        }
+
+        private async Task<EventMessage> CreateAndSendAsync(EventFlowType flow, ISource source, string endpoint,
             params object[] args)
         {
             var stopwatch = StopwatchUtil.StartNew();
@@ -190,7 +255,7 @@ namespace Lusive.Events
             {
                 stopwatch.Stop();
 
-                await PrepareDelegate(EventConstant.InboundPipeline, source, message);
+                await PrepareDelegate(EventConstant.InvokePipeline, source, message);
 
                 stopwatch.Start();
             }
@@ -201,7 +266,7 @@ namespace Lusive.Events
 
                 var data = context.GetData();
 
-                PushDelegate(EventConstant.InboundPipeline, source, data);
+                PushDelegate(EventConstant.InvokePipeline, source, data);
                 Logger.Debug(
                     $"[{endpoint}] Sent {data.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
 
@@ -209,40 +274,7 @@ namespace Lusive.Events
             }
         }
 
-        protected async Task<T> GetInternal<T>(ISource source, string endpoint, params object[] args)
-        {
-            var stopwatch = StopwatchUtil.StartNew();
-            var message = await SendInternal(EventFlowType.Circular, source, endpoint, args);
-            var token = new CancellationTokenSource();
-            var holder = new EventValueHolder<T>();
-
-            _queue.Add(new EventObservable(message, data =>
-            {
-                using var context = new SerializationContext(endpoint, "(Get) Response", Serialization, data);
-
-                holder.Data = data;
-                holder.Value = context.Deserialize<T>();
-
-                token.Cancel();
-            }));
-
-            while (!token.IsCancellationRequested)
-            {
-                await DelayDelegate!();
-            }
-
-            var elapsed = stopwatch.Elapsed.TotalMilliseconds;
-
-            Logger.Debug(
-                $"[{message.Endpoint}] Received response from {source} of {holder.Data.Length} byte(s) in {elapsed}ms");
-
-            return holder.Value;
-        }
-
-        public void Mount(string endpoint, Delegate @delegate)
-        {
-            Logger.Debug($"Mounted: {endpoint}");
-            _handlers.Add(new EventHandler(endpoint, @delegate));
-        }
+        internal static long GetCurrentTimestamp() =>
+            (long) DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalMilliseconds;
     }
 }
