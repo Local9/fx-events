@@ -1,5 +1,7 @@
 *.sln.DotSettings.user
 .idea
+samples/**/bin
+samples/**/obj
 src/*/bin
 src/*/obj
 src/*/*.nupkg
