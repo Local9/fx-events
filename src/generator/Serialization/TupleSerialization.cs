@@ -13,7 +13,7 @@ namespace Lusive.Events.Generator.Serialization
             string name,
             string typeIdentifier, Location location)
         {
-            var named = (INamedTypeSymbol) type;
+            var named = GenerationEngine.GetNamedTypeSymbol(type);
             var types = named.TypeArguments;
 
             for (var idx = 0; idx < Items; idx++)
@@ -26,9 +26,9 @@ namespace Lusive.Events.Generator.Serialization
             string name,
             string typeIdentifier, Location location)
         {
-            var named = (INamedTypeSymbol) type;
+            var named = GenerationEngine.GetNamedTypeSymbol(type);
             var types = named.TypeArguments;
-            var prefix = GenerationEngine.GetCamelCase(name);
+            var prefix = GenerationEngine.GetVariableName(name);
 
             for (var idx = 0; idx < Items; idx++)
             {

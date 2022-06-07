@@ -20,7 +20,7 @@ namespace Lusive.Events.Generator.Generation
 
                 if (nullable)
                 {
-                    var underlying = ((INamedTypeSymbol) type).TypeArguments.FirstOrDefault();
+                    var underlying = GenerationEngine.GetNamedTypeSymbol(type).TypeArguments.FirstOrDefault();
 
                     hasUnderlying = underlying != null;
                     type = underlying ?? type.WithNullableAnnotation(NullableAnnotation.None);
@@ -74,7 +74,7 @@ namespace Lusive.Events.Generator.Generation
                         case TypeKind.Struct:
                         case TypeKind.Class:
                             var enumerable = GenerationEngine.GetQualifiedName(type) == GenerationEngine.EnumerableQualifiedName
-                                ? (INamedTypeSymbol) type
+                                ? GenerationEngine.GetNamedTypeSymbol(type)
                                 : type.AllInterfaces.FirstOrDefault(self =>
                                     GenerationEngine.GetQualifiedName(self) == GenerationEngine.EnumerableQualifiedName);
 
@@ -93,7 +93,7 @@ namespace Lusive.Events.Generator.Generation
                                             _ => current
                                         });
 
-                                    var prefix = GenerationEngine.GetCamelCase(name);
+                                    var prefix = GenerationEngine.GetVariableName(name);
 
                                     code.AppendLine($"var {prefix}Count = {name}.{countTechnique};");
                                     code.AppendLine($"writer.Write({prefix}Count);");
@@ -153,7 +153,7 @@ namespace Lusive.Events.Generator.Generation
                             }
                             else
                             {
-                                var prefix = GenerationEngine.GetCamelCase(name);
+                                var prefix = GenerationEngine.GetVariableName(name);
                                 var indexName = $"{prefix}Idx";
 
                                 using (code.BeginScope(

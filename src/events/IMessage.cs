@@ -8,6 +8,6 @@ namespace Lusive.Events
     {
         SnowflakeId Id { get; set; }
         string Endpoint { get; set; }
-        string Signature { get; set; }
+        string? Signature { get; set; }
     }
 }

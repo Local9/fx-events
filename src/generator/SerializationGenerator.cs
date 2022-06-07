@@ -61,6 +61,9 @@ namespace Lusive.Events.Generator
                         $"Duplicate entry '{item.TypeSymbol.ContainingNamespace}.{item.TypeSymbol.MetadataName}' ({unique})");
                 }
             }
+            
+            _sources.Clear();
+            GenerationEngine.Instance.Init();
 
             // context.AddSource("Logs.cs",
             //     SourceText.From(

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Lusive.Events.Generator.Extensions;
 using Lusive.Events.Generator.Generation;
 using Lusive.Events.Generator.Models;
 using Lusive.Events.Generator.Problems;
@@ -61,21 +62,26 @@ namespace Lusive.Events.Generator
             { "ulong", "UInt64" }
         };
 
-        public readonly List<WorkItem> WorkItems = new();
-        public readonly List<SerializationProblem> Problems = new();
-        public readonly List<string> Logs = new();
+        public List<WorkItem> WorkItems { get; private set; }
+        public List<SerializationProblem> Problems { get; private set; }
+        public List<string> Logs { get; private set; }
 
         private GenerationEngine()
         {
+            Init();
+        }
+
+        public void Init()
+        {
+            WorkItems = new List<WorkItem>();
+            Problems = new List<SerializationProblem>();
+            Logs = new List<string>();
         }
 
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
         {
             if (context.Node is not ClassDeclarationSyntax classDecl) return;
-
-            var symbol = (INamedTypeSymbol) context.SemanticModel.GetDeclaredSymbol(context.Node);
-
-            if (symbol == null) return;
+            if (context.SemanticModel.GetDeclaredSymbol(context.Node) is not INamedTypeSymbol symbol) return;
             if (!HasMarkedAsSerializable(symbol)) return;
 
             var hasPartial = classDecl.Modifiers.Any(self => self.ToString() == "partial");
@@ -126,8 +132,8 @@ namespace Lusive.Events.Generator
 
         public CodeWriter Compile(WorkItem item)
         {
-            var symbol = item.TypeSymbol;
             var code = new CodeWriter();
+            var symbol = item.TypeSymbol;
             var imports = new Dictionary<string, bool>
             {
                 ["System"] = true, ["System.IO"] = true, ["System.Linq"] = true,
@@ -195,56 +201,21 @@ namespace Lusive.Events.Generator
             return code;
         }
 
-        public static IEnumerable<Tuple<ISymbol, ITypeSymbol>> GetMembers(ITypeSymbol symbol)
-        {
-            var members = new List<Tuple<ISymbol, bool>>();
-            var overrides = new List<string>();
-
-            foreach (var member in GetAllMembers(symbol))
-            {
-                if (member is not IPropertySymbol && member is not IFieldSymbol) continue;
-                if (overrides.Contains(member.Name)) continue;
-                if (member.IsOverride)
-                {
-                    members.RemoveAll(self => self.Item1.Name == member.Name);
-                    overrides.Add(member.Name);
-                }
-
-                var attributes = member.GetAttributes();
-
-                if (attributes.Any(self => self.AttributeClass is { Name: "IgnoreAttribute" })) continue;
-
-                var forced = attributes.Any(self => self.AttributeClass is { Name: "ForceAttribute" });
-
-                if (!forced && member.DeclaredAccessibility != Accessibility.Public) continue;
-                if (member is IPropertySymbol propertySymbol && !forced && (
-                    propertySymbol.IsIndexer || propertySymbol.IsReadOnly ||
-                    propertySymbol.IsWriteOnly)) continue;
-
-                members.Add(Tuple.Create(member, forced));
-            }
-
-            foreach (var (member, forced) in members)
-            {
-                if (forced && member is IPropertySymbol { IsReadOnly: true }) continue;
-
-                var valueType = member switch
-                {
-                    IPropertySymbol propertySymbol => propertySymbol.Type,
-                    IFieldSymbol fieldSymbol => fieldSymbol.Type,
-                    _ => null
-                };
-
-                if (valueType == null) continue;
-
-                yield return Tuple.Create(member, valueType);
-            }
-        }
-
         public static void Generate(string target, ITypeSymbol symbol, CodeWriter code, GenerationType type)
         {
-            foreach (var (member, valueType) in GetMembers(symbol))
+            foreach (var (member, valueType) in GetMembers(symbol, type))
             {
+                var skip = member switch
+                {
+                    IPropertySymbol property => type == GenerationType.Read
+                        ? property.IsReadOnly
+                        : property.IsWriteOnly,
+                    IFieldSymbol field => type == GenerationType.Read && field.IsReadOnly,
+                    _ => false
+                };
+
+                if (skip) continue;
+
                 code.AppendLine();
                 code.AppendLine($"// Member: {member.Name} ({valueType.MetadataName})");
 
@@ -266,6 +237,67 @@ namespace Lusive.Events.Generator
                             throw new ArgumentOutOfRangeException(nameof(type), type, null);
                     }
                 }
+            }
+        }
+
+        public static IEnumerable<Tuple<ISymbol, ITypeSymbol>> GetMembers(ITypeSymbol symbol, GenerationType type)
+        {
+            var members = new List<ISymbol>();
+            var overrides = new List<string>();
+
+            foreach (var member in GetAllMembers(symbol))
+            {
+                if (member is not IPropertySymbol && member is not IFieldSymbol) continue;
+                if (overrides.Contains(member.Name)) continue;
+                if (member.IsOverride)
+                {
+                    overrides.Add(member.Name);
+                }
+
+                var attributes = member.GetAttributes();
+
+                var ignored = attributes.FirstOrDefault(self => self.AttributeClass is
+                    { Name: "IgnoreAttribute" });
+                var isIgnored = ignored != null && (type == GenerationType.Read
+                    ? ignored.GetAttributeValue("Read", true)
+                    : ignored.GetAttributeValue("Write", true));
+
+                if (isIgnored) continue;
+
+                var forced =
+                    attributes.FirstOrDefault(self => self.AttributeClass is { Name: "ForceAttribute" });
+                var isForced = forced != null && (type == GenerationType.Read
+                    ? forced.GetAttributeValue("Read", true)
+                    : forced.GetAttributeValue("Write", true));
+
+                if (!isForced && member.DeclaredAccessibility != Accessibility.Public) continue;
+
+                switch (member)
+                {
+                    case IFieldSymbol fieldSymbol when !isForced && fieldSymbol.IsReadOnly:
+                    case IPropertySymbol propertySymbol when propertySymbol.IsIndexer ||
+                                                             !isForced && (propertySymbol.IsReadOnly ||
+                                                                           propertySymbol.IsWriteOnly):
+                        continue;
+                    default:
+                        members.Add(member);
+
+                        break;
+                }
+            }
+
+            foreach (var member in members)
+            {
+                var valueType = member switch
+                {
+                    IPropertySymbol propertySymbol => propertySymbol.Type,
+                    IFieldSymbol fieldSymbol => fieldSymbol.Type,
+                    _ => null
+                };
+
+                if (valueType == null) continue;
+
+                yield return Tuple.Create(member, valueType);
             }
         }
 
@@ -293,27 +325,47 @@ namespace Lusive.Events.Generator
             }
         }
 
-        public static string GetCamelCase(string value)
+        public static string GetVariableName(string value)
         {
-            if (string.IsNullOrEmpty(value) || char.IsLower(value[0]))
+            if (string.IsNullOrEmpty(value))
                 return value;
 
-            return char.ToLower(value[0]) + value.Substring(1);
+            var camel = char.ToLower(value[0]) + value.Substring(1);
+            int punctuationIndex;
+
+            while ((punctuationIndex = camel.IndexOf('.')) != -1)
+            {
+                var array = camel.ToCharArray().ToList();
+
+                array.RemoveAt(punctuationIndex);
+                array[punctuationIndex] = char.ToUpper(array[punctuationIndex]);
+
+                camel = new string(array.ToArray());
+            }
+
+            return camel;
         }
 
-        public static string GetIdentifierWithArguments(ISymbol symbol)
+        public static string GetIdentifierWithArguments(ITypeSymbol symbol)
         {
             var builder = new StringBuilder();
+            var named = GetNamedTypeSymbol(symbol);
 
-            builder.Append(GetFullName(symbol));
+            builder.Append(GetFullName(named));
 
-            if (symbol is not INamedTypeSymbol named || named.TypeArguments == null ||
-                named.TypeArguments.IsDefaultOrEmpty) return builder.ToString();
+            if (named.TypeArguments != null && !named.TypeArguments.IsDefaultOrEmpty)
+            {
+                builder.Append("<");
+                builder.Append(string.Join(",",
+                    named.TypeArguments
+                        .Select(GetIdentifierWithArguments)));
+                builder.Append(">");
+            }
 
-            builder.Append("<");
-            builder.Append(string.Join(",",
-                named.TypeArguments.Cast<INamedTypeSymbol>().Select(GetIdentifierWithArguments)));
-            builder.Append(">");
+            if (symbol is IArrayTypeSymbol)
+            {
+                builder.Append("[]");
+            }
 
             return builder.ToString();
         }
@@ -409,6 +461,16 @@ namespace Lusive.Events.Generator
             }
 
             return members.Where(self => !self.IsStatic);
+        }
+
+        public static INamedTypeSymbol GetNamedTypeSymbol(ITypeSymbol symbol)
+        {
+            return symbol switch
+            {
+                INamedTypeSymbol named => named,
+                IArrayTypeSymbol array => GetNamedTypeSymbol(array.ElementType),
+                _ => throw new ArgumentOutOfRangeException($"Could not convert to named type symbol: {symbol.Name}")
+            };
         }
     }
 }
