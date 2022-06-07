@@ -1,46 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Threading.Tasks;
+﻿// this code is taken directly from my own gamemode and must be edited to fit your needs
+
 using CitizenFX.Core;
 using CitizenFX.Core.Native;
-using JetBrains.Annotations;
-using Moonlight.Server.Internal.Diagnostics;
-using Moonlight.Shared;
-using Moonlight.Shared.Internal.Diagnostics;
-using Moonlight.Shared.Internal.Events;
-using Moonlight.Shared.Internal.Events.Message;
-using Moonlight.Shared.Internal.Extensions;
-using Player = Moonlight.Server.Identity.Player;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+using TheLastPlanet.Server.Core; // this is to handle the GetPlayerFromId methods.
+using TheLastPlanet.Shared.Internal.Events; // to change with Lusive.Events
+using TheLastPlanet.Shared.Internal.Events.Message; // to change with Lusive.Events
+using TheLastPlanet.Shared.Internal.Events.Serialization; // to change with Lusive.Events
+using TheLastPlanet.Shared.Internal.Events.Serialization.Implementations; // to change with Lusive.Events
+using TheLastPlanet.Shared.TypeExtensions; // to change with Lusive.Events
 
-namespace Moonlight.Server.Internal.Events
+namespace TheLastPlanet.Server.Internal.Events
 {
-    [PublicAPI]
     public class ServerGateway : BaseGateway
     {
-        protected override BaseLogger Logger { get; } = new Logger("Events");
+        protected override ISerialization Serialization { get; }
+        private Dictionary<int, string> _signatures = new();
 
-        protected override Task GetDelayedTask(int milliseconds = 0)
+        public ServerGateway()
         {
-            return BaseScript.Delay(milliseconds);
+            Serialization = new BinarySerialization();
+            DelayDelegate = async delay => await BaseScript.Delay(delay);
+            PushDelegate = Push;
+            Server.Instance.AddEventHandler(EventConstant.SignaturePipeline, new Action<string>(GetSignature));
+            Server.Instance.AddEventHandler(EventConstant.InboundPipeline, new Action<string, byte[]>(Inbound));
+            Server.Instance.AddEventHandler(EventConstant.OutboundPipeline, new Action<string, byte[]>(Outbound));
         }
 
-        protected override void TriggerImpl(string pipeline, int target, ISerializable payload)
+        public void Push(string pipeline, ISource source, byte[] buffer)
         {
-            if (target != ClientId.Global.Handle)
-                BaseScript.TriggerClientEvent(MoonServer.GetPlayerFromHandle(target), pipeline, payload.Serialize());
+            if (source.Handle != new ServerId().Handle)
+                BaseScript.TriggerClientEvent(Funzioni.GetPlayerFromId(source.Handle), pipeline, buffer);
             else
-                BaseScript.TriggerClientEvent(pipeline, payload.Serialize());
+                BaseScript.TriggerClientEvent(pipeline, buffer);
         }
 
-        private Dictionary<int, string> _signatures = new Dictionary<int, string>();
-
-        public ServerGateway(IScriptBase script)
-        {
-            script.Hook(EventConstant.SignaturePipeline, new Action<string>(GetSignature));
-            script.Hook(EventConstant.InboundPipeline, new Action<string, string>(Inbound));
-            script.Hook(EventConstant.OutboundPipeline, new Action<string, string>(Outbound));
-        }
 
         private void GetSignature([FromSource] string source)
         {
@@ -50,12 +48,12 @@ namespace Moonlight.Server.Internal.Events
 
                 if (_signatures.ContainsKey(client.Handle))
                 {
-                    Logger.Info($"Client {client} tried obtaining event signature illegally.");
+                    Server.Logger.Warning($"Client {client} tried acquiring event signature more than once.");
 
                     return;
                 }
 
-                var holder = new byte[64];
+                var holder = new byte[128];
 
                 using (var service = new RNGCryptoServiceProvider())
                 {
@@ -65,15 +63,15 @@ namespace Moonlight.Server.Internal.Events
                 var signature = BitConverter.ToString(holder).Replace("-", "").ToLower();
 
                 _signatures.Add(client.Handle, signature);
-                BaseScript.TriggerClientEvent(MoonServer.GetPlayerFromHandle(client.Handle), EventConstant.SignaturePipeline, signature);
+                BaseScript.TriggerClientEvent(Funzioni.GetPlayerFromId(client.Handle), EventConstant.SignaturePipeline, signature);
             }
             catch (Exception ex)
             {
-                Sentinel.Capture(ex);
+                Server.Logger.Error(ex.ToString());
             }
         }
 
-        private async void Inbound([FromSource] string source, string serialized)
+        private async void Inbound([FromSource] string source, byte[] buffer)
         {
             try
             {
@@ -81,15 +79,12 @@ namespace Moonlight.Server.Internal.Events
 
                 if (!_signatures.TryGetValue(client.Handle, out var signature)) return;
 
-                var message = EventMessage.Deserialize(serialized);
+                using var context = new SerializationContext(EventConstant.InboundPipeline, null, Serialization, buffer);
 
-                if (message.Signature != signature)
-                {
-                    Logger.Info(
-                        $"[{EventConstant.InboundPipeline}, {client.Handle}, {message.Signature}] Client {client} had invalid event signature, possible malicious intent?");
+                var message = context.Deserialize<EventMessage>();
 
-                    return;
-                }
+
+                if (!VerifySignature(client, message, signature)) return;
 
                 try
                 {
@@ -102,11 +97,22 @@ namespace Moonlight.Server.Internal.Events
             }
             catch (Exception ex)
             {
-                Sentinel.Capture(ex);
+                Server.Logger.Error(ex.ToString());
             }
         }
 
-        private void Outbound([FromSource] string source, string serialized)
+        public bool VerifySignature(ISource source, IMessage message, string signature)
+        {
+            if (message.Signature == signature) return true;
+
+            Server.Logger.Error($"[{message.Endpoint}] Client {source} had invalid event signature, aborting:");
+            Server.Logger.Error($"[{message.Endpoint}] \tSupplied Signature: {message.Signature}");
+            Server.Logger.Error($"[{message.Endpoint}] \tActual Signature: {message.Signature}");
+
+            return false;
+        }
+
+        private void Outbound([FromSource] string source, byte[] buffer)
         {
             try
             {
@@ -114,38 +120,44 @@ namespace Moonlight.Server.Internal.Events
 
                 if (!_signatures.TryGetValue(client.Handle, out var signature)) return;
 
-                var response = EventResponseMessage.Deserialize(serialized);
+                using var context = new SerializationContext(EventConstant.OutboundPipeline, null, Serialization, buffer);
 
-                if (response.Signature != signature)
-                {
-                    Logger.Info(
-                        $"[{EventConstant.OutboundPipeline}, {client.Handle}, {response.Signature}] Client {client} had invalid event signature, possible malicious intent?");
+                var response = context.Deserialize<EventResponseMessage>();
 
-                    return;
-                }
+                if (!VerifySignature(client, response, signature)) return;
 
                 ProcessOutbound(response);
             }
             catch (Exception ex)
             {
-                Sentinel.Capture(ex);
+                Server.Logger.Error(ex.ToString());
             }
         }
 
-        public void Send(Player player, string endpoint, params object[] args) => Send(player.Handle, endpoint, args);
+        public void Send(Player player, string endpoint, params object[] args) => Send(Convert.ToInt32(player.Handle), endpoint, args);
         public void Send(ClientId client, string endpoint, params object[] args) => Send(client.Handle, endpoint, args);
+        public void Send(List<Player> players, string endpoint, params object[] args) => Send(players.Select(x => Convert.ToInt32(x.Handle)).ToList(), endpoint, args);
+        public void Send(List<ClientId> clients, string endpoint, params object[] args) => Send(clients.Select(x => x.Handle).ToList(), endpoint, args);
 
-        public void Send(int target, string endpoint, params object[] args)
+        public void Send(List<int> targets, string endpoint, params object[] args)
         {
-            SendInternal(target, endpoint, args);
+            for (int i = 0; i < targets.Count; i++) Send(targets[i], endpoint, args);
         }
 
-        public Task<T> Get<T>(Player player, string endpoint, params object[] args) => Get<T>(player.Handle, endpoint, args);
-        public Task<T> Get<T>(ClientId client, string endpoint, params object[] args) => Get<T>(client.Handle, endpoint, args);
-
-        public async Task<T> Get<T>(int target, string endpoint, params object[] args)
+        public async void Send(int target, string endpoint, params object[] args)
         {
-            return await GetInternal<T>(-1, endpoint, args);
+            await SendInternal(EventFlowType.Straight, new ClientId(target), endpoint, args);
+        }
+
+        public Task<T> Get<T>(Player player, string endpoint, params object[] args) where T : class =>
+            Get<T>(Convert.ToInt32(player.Handle), endpoint, args);
+
+        public Task<T> Get<T>(ClientId client, string endpoint, params object[] args) where T : class =>
+            Get<T>(client.Handle, endpoint, args);
+
+        public async Task<T> Get<T>(int target, string endpoint, params object[] args) where T : class
+        {
+            return await GetInternal<T>((ClientId)target, endpoint, args);
         }
     }
 }

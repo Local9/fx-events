@@ -1,36 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// this code is taken directly from my own gamemode and must be edited to fit your needs
+
+using System;
 using System.Linq;
-using CitizenFX.Core.Native;
-using JetBrains.Annotations;
-using Moonlight.Server.Identity;
-using Moonlight.Server.Internal.Components;
-using Moonlight.Server.Sessions;
-using Moonlight.Shared.Internal;
-using Moonlight.Shared.Internal.Events;
+using Newtonsoft.Json;
+using TheLastPlanet.Server.Core;
+using TheLastPlanet.Server.Core.PlayerChar;
+using TheLastPlanet.Shared.Internal.Events.Attributes;
+using TheLastPlanet.Shared.PlayerChar;
+using TheLastPlanet.Shared.Snowflakes;
+using System.IO;
+using TheLastPlanet.Shared.Internal.Events;
 
-namespace Moonlight.Server.Internal.Events
+namespace TheLastPlanet.Server
 {
-    [PublicAPI]
-    public class ClientId : ISource
+    [Serialization]
+    public partial class ClientId : ISource
     {
-        public static readonly ClientId Global = new ClientId(-1);
-
-        public Snowflake Id { get; set; }
+        public SnowflakeId Id { get; set; }
         public int Handle { get; set; }
-        public string[] Identifiers { get; set; }
-        public Player Player => Component.GetInstance<SessionComponent>().Sessions.SingleOrDefault(self => self.Owner.Handle == Handle)?.Owner;
+        public User User { get; set; }
+        public Identifiers Identifiers => User.Identifiers;
+
+        [Ignore]
+        [JsonIgnore]
+        public Player Player { get => Server.Server.Instance.GetPlayers[Handle]; }
+
+        [Ignore]
+        [JsonIgnore]
+        public Ped Ped { get => Player.Character; }
+
+        public static readonly ClientId Global = new(-1);
+
+        [Ignore]
+        public Status Status { get; set; }
+        public ClientId()
+        {
+            Status = new(Player);
+        }
 
         public ClientId(Snowflake id)
         {
-            var component = Component.GetInstance<SessionComponent>();
-            var owner = component.Sessions.SingleOrDefault(self => self.Owner.Id == id)?.Owner;
-
+            Player owner = Server.Server.Instance.GetPlayers.FirstOrDefault(x => x.Handle == Handle.ToString());
             if (owner != null)
             {
                 Id = id;
-                Handle = owner.Handle;
-                Identifiers = owner.Identifiers;
+                Handle = Convert.ToInt32(owner.Handle);
+                LoadUser();
+                Status = new(Player);
             }
             else
             {
@@ -41,50 +57,51 @@ namespace Moonlight.Server.Internal.Events
         public ClientId(int handle)
         {
             Handle = handle;
+            //Player = Server.Server.Instance.GetPlayers.FirstOrDefault(x => x.Handle == Handle.ToString());
+            if (handle > 0)
+                LoadUser();
+            Id = User != null ? User.PlayerID : Snowflake.Empty;
+            //ClientStateBags = new(Player);
+            Status = new(Player);
+        }
 
-            var holder = new List<string>();
-
-            for (var index = 0; index < API.GetNumPlayerIdentifiers(handle.ToString()); index++)
-            {
-                holder.Add(API.GetPlayerIdentifier(handle.ToString(), index));
-            }
-
-            var component = Component.GetInstance<SessionComponent>();
-
-            Id = component.Sessions.SingleOrDefault(self => self.Owner.Handle == handle)?.Owner.Id ?? Snowflake.Empty;
-            Identifiers = holder.ToArray();
+        public ClientId(User user)
+        {
+            Handle = Convert.ToInt32(user.Player.Handle);
+            //Player = user.Player;
+            User = user;
+            Id = user.PlayerID;
+            //ClientStateBags = new(Player);
+            Status = new(Player);
         }
 
         public ClientId(Snowflake id, int handle, string[] identifiers)
         {
             Id = id;
             Handle = handle;
-            Identifiers = identifiers;
+            LoadUser();
+            //ClientStateBags = new(Player);
+            Status = new(Player);
         }
 
         public override string ToString()
         {
-            return $"{(Id != Snowflake.Empty ? Id.ToString() : Handle.ToString())} ({API.GetPlayerName(Handle.ToString())})";
+            return $"{(Id != Snowflake.Empty ? Id.ToString() : Handle.ToString())} ({Player.Name})";
         }
 
-        public bool Compare(string[] identifiers)
+        public bool Compare(Identifiers identifier)
         {
-            return identifiers.Any(self => Identifiers.Contains(self));
+            return Identifiers == identifier;
         }
 
         public bool Compare(Player player)
         {
-            return Compare(player.Identifiers);
-        }
-
-        public bool Compare(ClientId client)
-        {
-            return client.Handle == Handle;
+            return Compare(player.GetCurrentChar().Identifiers);
         }
 
         public static explicit operator ClientId(string netId)
         {
-            if (int.TryParse(netId.Replace("net:", string.Empty), out var handle))
+            if (int.TryParse(netId.Replace("net:", string.Empty), out int handle))
             {
                 return new ClientId(handle);
             }
@@ -92,6 +109,19 @@ namespace Moonlight.Server.Internal.Events
             throw new Exception($"Could not parse net id: {netId}");
         }
 
-        public static explicit operator ClientId(int handle) => new ClientId(handle);
+        public bool Compare(ClientId client)
+        {
+            return client.Handle == Handle;
+        }
+
+        public void LoadUser()
+        {
+            ClientId res;
+            res = Server.Server.Instance.Clients.FirstOrDefault(x => x.Handle == Handle);
+            if (res != null)
+                User = res.User;
+        }
+
+        public static explicit operator ClientId(int handle) => new(handle);
+
     }
-}

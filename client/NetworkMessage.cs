@@ -1,9 +1,7 @@
-﻿using JetBrains.Annotations;
-using Moonlight.Shared.Internal;
+﻿using TheLastPlanet.Shared.Snowflakes;
 
-namespace Moonlight.Client.Internal.Events
+namespace TheLastPlanet.Client.Internal.Events
 {
-    [PublicAPI]
     public class NetworkMessage
     {
         public Snowflake Id { get; set; }
