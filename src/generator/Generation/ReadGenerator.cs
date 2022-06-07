@@ -1,11 +1,12 @@
 using System;
 using System.Linq;
+using Lusive.Events.Generator;
 using Lusive.Events.Generator.Models;
 using Lusive.Events.Generator.Problems;
 using Lusive.Events.Generator.Syntax;
 using Microsoft.CodeAnalysis;
 
-namespace Lusive.Events.Generator.Generation
+namespace Lusive.Generator.Generation
 {
     public static class ReadGenerator
     {

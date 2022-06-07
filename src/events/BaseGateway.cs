@@ -3,25 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using JetBrains.Annotations;
 using Lusive.Events.Diagnostics;
 using Lusive.Events.Exceptions;
 using Lusive.Events.Message;
 using Lusive.Events.Models;
+using Lusive.Events.Payload;
 using Lusive.Events.Serialization;
 
 namespace Lusive.Events
 {
+    // TODO: Concurrency, block a request simliar to a already processed one unless tagged with the [Concurrent] method attribute to combat force spamming events to achieve some kind of bug.
     public delegate Task EventDelayMethod(int ms = 0);
-
     public delegate Task EventMessagePreparation(string pipeline, ISource source, IMessage message);
-
     public delegate void EventMessagePush(string pipeline, ISource source, byte[] buffer);
 
-    [PublicAPI]
     public abstract class BaseGateway
     {
-        protected abstract IEventLogger Logger { get; }
         protected abstract ISerialization Serialization { get; }
 
         private List<Tuple<EventMessage, EventHandler>> _processed = new();
@@ -80,7 +77,7 @@ namespace Lusive.Events
 
                 parameters.AddRange(holder.ToArray());
 
-                return CallInternalDelegate();
+                return @delegate.DynamicInvoke(parameters.ToArray());
             }
 
             if (message.Flow == EventFlowType.Circular)
@@ -94,7 +91,7 @@ namespace Lusive.Events
                 {
                     using var token = new CancellationTokenSource();
 
-                    var task = (Task) result;
+                    var task = (Task)result;
                     var timeout = DelayDelegate!(10000);
                     var completed = await Task.WhenAny(task, timeout);
 
@@ -104,7 +101,7 @@ namespace Lusive.Events
 
                         await task.ConfigureAwait(false);
 
-                        result = (object) ((dynamic) task).Result;
+                        result = (object)((dynamic)task).Result;
                     }
                     else
                     {
@@ -119,7 +116,6 @@ namespace Lusive.Events
                 if (result != null)
                 {
                     using var context = new SerializationContext(message.Endpoint, "(Process) Result", Serialization);
-
                     context.Serialize(resultType, result);
                     response.Data = context.GetData();
                 }
@@ -135,8 +131,7 @@ namespace Lusive.Events
                     var data = context.GetData();
 
                     PushDelegate(EventConstant.OutboundPipeline, source, data);
-                    Logger.Debug(
-                        $"[{message.Endpoint}] Responded to {source} with {data.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                    //Logger.Debug($"[{message.Endpoint}] Responded to {source} with {data.Length} byte(s) in {stopwatch.Elapsed.TotalMilliseconds}ms");
                 }
             }
             else
@@ -202,8 +197,7 @@ namespace Lusive.Events
                 var data = context.GetData();
 
                 PushDelegate(EventConstant.InboundPipeline, source, data);
-                Logger.Debug(
-                    $"[{endpoint}] Sent {data.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
+                //Logger.Debug($"[{endpoint}] Sent {data.Length} byte(s) to {source} in {stopwatch.Elapsed.TotalMilliseconds}ms");
 
                 return message;
             }
@@ -228,21 +222,25 @@ namespace Lusive.Events
 
             while (!token.IsCancellationRequested)
             {
-                await DelayDelegate!();
+                await DelayDelegate();
             }
 
             var elapsed = stopwatch.Elapsed.TotalMilliseconds;
 
-            Logger.Debug(
-                $"[{message.Endpoint}] Received response from {source} of {holder.Data.Length} byte(s) in {elapsed}ms");
+            //Logger.Debug($"[{message.Endpoint}] Received response from {source} of {holder.Data.Length} byte(s) in {elapsed}ms");
 
             return holder.Value;
         }
 
         public void Mount(string endpoint, Delegate @delegate)
         {
-            Logger.Debug($"Mounted: {endpoint}");
+            //Logger.Debug($"Mounted: {endpoint}");
             _handlers.Add(new EventHandler(endpoint, @delegate));
+        }
+        public void Unmount(string endpoint)
+        {
+            if (_handlers.Any(x => x.Endpoint == endpoint))
+                _handlers.RemoveAll(x => x.Endpoint == endpoint);
         }
     }
 }

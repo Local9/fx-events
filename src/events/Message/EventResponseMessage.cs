@@ -1,10 +1,8 @@
-﻿using JetBrains.Annotations;
-using Lusive.Events.Attributes;
+﻿using Lusive.Events.Attributes;
 using Lusive.Snowflake;
 
 namespace Lusive.Events.Message
 {
-    [PublicAPI]
     [Serialization]
     public partial class EventResponseMessage : IMessage
     {

@@ -1,12 +1,10 @@
-﻿using System;
-using System.Text;
-using JetBrains.Annotations;
-using Lusive.Events.Diagnostics;
 using Newtonsoft.Json;
+using System;
+using System.Text;
+using Lusive.Events.Diagnostics;
 
 namespace Lusive.Events.Serialization.Implementations
 {
-    [PublicAPI]
     public class JsonSerialization : ISerialization
     {
         public IEventLogger Logger { get; set; }
@@ -34,7 +32,7 @@ namespace Lusive.Events.Serialization.Implementations
 
         public T Deserialize<T>(SerializationContext context)
         {
-            return (T) Deserialize(typeof(T), context);
+            return (T)Deserialize(typeof(T), context);
         }
     }
 }

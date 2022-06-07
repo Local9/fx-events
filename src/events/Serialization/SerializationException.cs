@@ -1,10 +1,8 @@
-﻿using System;
-using JetBrains.Annotations;
+using System;
 using Lusive.Events.Serialization;
 
 namespace Lusive.Events.Exceptions
 {
-    [PublicAPI]
     public class SerializationException : Exception
     {
         public SerializationContext Context { get; set; }

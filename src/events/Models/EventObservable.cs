@@ -1,9 +1,7 @@
-﻿using System;
-using JetBrains.Annotations;
+using System;
 
 namespace Lusive.Events.Models
 {
-    [PublicAPI]
     public class EventObservable
     {
         public IMessage Message { get; set; }

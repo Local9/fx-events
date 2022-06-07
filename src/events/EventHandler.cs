@@ -1,10 +1,8 @@
-﻿using System;
-using JetBrains.Annotations;
 using Lusive.Snowflake;
+using System;
 
 namespace Lusive.Events
 {
-    [PublicAPI]
     public class EventHandler
     {
         public SnowflakeId Id { get; set; }

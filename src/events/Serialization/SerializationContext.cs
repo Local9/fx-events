@@ -1,15 +1,12 @@
 using System;
 using System.IO;
-using JetBrains.Annotations;
 
 namespace Lusive.Events.Serialization
 {
-    [PublicAPI]
     public class SerializationContext : IDisposable
     {
         public string Source { get; set; }
         public string Details { get; set; }
-
         public BinaryWriter? Writer
         {
             get => _writer;
@@ -46,7 +43,6 @@ namespace Lusive.Events.Serialization
         {
             Source = source;
             Details = details;
-
             _serialization = serialization;
             _memory = data != null ? new MemoryStream(data) : new MemoryStream();
             _writer = new BinaryWriter(_memory);

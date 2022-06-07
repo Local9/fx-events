@@ -1,9 +1,7 @@
 ﻿using System;
-using JetBrains.Annotations;
 
 namespace Lusive.Events.Serialization
 {
-    [PublicAPI]
     public interface ISerialization
     {
         void Serialize(Type type, object value, SerializationContext context);

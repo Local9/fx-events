@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Lusive.Events.Generator.Generation;
 using Lusive.Events.Generator.Syntax;
+using Lusive.Generator.Generation;
 using Microsoft.CodeAnalysis;
 
 namespace Lusive.Events.Generator.Serialization

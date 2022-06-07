@@ -2,7 +2,7 @@
 
 namespace Lusive.Events.Attributes
 {
-    public class SerializationAttribute : Attribute
+    public class ConcurrentAttribute : Attribute
     {
     }
 }

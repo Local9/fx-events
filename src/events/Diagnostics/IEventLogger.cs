@@ -1,8 +1,5 @@
-﻿using JetBrains.Annotations;
-
-namespace Lusive.Events.Diagnostics
+﻿namespace Lusive.Events.Diagnostics
 {
-    [PublicAPI]
     public interface IEventLogger
     {
         void Debug(params object[] values);

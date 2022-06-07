@@ -1,9 +1,7 @@
-﻿using JetBrains.Annotations;
-using Lusive.Events.Attributes;
+﻿using Lusive.Events.Attributes;
 
-namespace Lusive.Events.Message
+namespace Lusive.Events.Payload
 {
-    [PublicAPI]
     [Serialization]
     public partial class EventParameter
     {

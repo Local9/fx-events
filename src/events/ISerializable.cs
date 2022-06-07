@@ -1,9 +1,8 @@
-﻿using JetBrains.Annotations;
-using Lusive.Snowflake;
+﻿using Lusive.Snowflake;
 
 namespace Lusive.Events
 {
-    [PublicAPI]
+
     public interface IMessage
     {
         SnowflakeId Id { get; set; }
